@@ -1,0 +1,113 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app-bg {
+  min-height: 100vh;
+  background-color: #F2F2F0;
+}
+
+.app-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 52px 24px 64px;
+}
+
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 800px) {
+  .room-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Simulator slider */
+.sim-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #E5E5EA;
+  outline: none;
+  cursor: pointer;
+}
+
+.sim-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #34C759;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.sim-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.sim-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #34C759;
+  border: none;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+  cursor: pointer;
+}
+
+/* Radix slider thumb hover */
+.slider-thumb:hover {
+  transform: scale(1.18);
+  transition: transform 0.15s;
+}
+.slider-thumb:active {
+  cursor: grabbing;
+}
+
+/* Config time input */
+.time-input {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1C1C1E;
+  background: #F7F7F5;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 10px;
+  outline: none;
+  cursor: pointer;
+}
+
+.time-input::-webkit-calendar-picker-indicator {
+  opacity: 0.4;
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .app-container {
+    padding: 36px 16px 48px;
+  }
+  .room-grid {
+    grid-template-columns: 1fr;
+  }
+}
