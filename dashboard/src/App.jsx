@@ -155,7 +155,6 @@ const INITIAL_ROOMS = [
       { id: 'tv', name: 'TV', icon: 'tv', on: false },
       { id: 'ac', name: 'AC', icon: 'ac', on: false },
       { id: 'fan', name: 'Fan', icon: 'fan', on: false },
-      { id: 'lamp', name: 'Lamp', icon: 'lamp', on: false },
     ],
   },
   {
@@ -196,7 +195,6 @@ const ROOM_LAYOUTS = [
       { id: 'fan', x: '50%', y: '48%' },
       { id: 'ac', x: '50%', y: '6%' },
       { id: 'tv', x: '50%', y: '75%' },
-      { id: 'lamp', x: '88%', y: '70%' },
     ],
   },
   {

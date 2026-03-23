@@ -68,7 +68,8 @@ PIR_PIN   = 24
 DHT_PIN   = 23
 IR_TX_PIN = 18
 IR_RX_PIN = 17
-LAMP_PIN  = 6
+TV_PIN    = 5
+AC_PIN    = 6
 FAN_PIN   = 13
 RGB_RED   = 27
 RGB_GREEN = 22
@@ -77,7 +78,8 @@ RGB_BLUE  = 12
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(PIR_PIN,   GPIO.IN)
-GPIO.setup(LAMP_PIN,  GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(TV_PIN,    GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(AC_PIN,    GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(FAN_PIN,   GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(RGB_RED,   GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(RGB_GREEN, GPIO.OUT, initial=GPIO.LOW)
@@ -139,7 +141,7 @@ STATE = {
         "last_motion": 0,
         "temp":        None,
         "humidity":    None,
-        "appliances":  {"tv": False, "ac": False, "fan": False, "lamp": False},
+        "appliances":  {"tv": False, "ac": False, "fan": False},
         "overrides":   {},          # appliance_id -> expiry timestamp
     },
     "bedroom": {
@@ -167,9 +169,11 @@ def is_nighttime() -> bool:
     return current >= start or current < end
 
 def _apply_gpio(appliance_id: str, on: bool):
-    """Drive hardware for appliances that have a direct GPIO relay."""
-    if appliance_id == "lamp":
-        GPIO.output(LAMP_PIN, GPIO.HIGH if on else GPIO.LOW)
+    """Drive LED indicator for each appliance."""
+    if appliance_id == "tv":
+        GPIO.output(TV_PIN,  GPIO.HIGH if on else GPIO.LOW)
+    elif appliance_id == "ac":
+        GPIO.output(AC_PIN,  GPIO.HIGH if on else GPIO.LOW)
     elif appliance_id == "fan":
         GPIO.output(FAN_PIN, GPIO.HIGH if on else GPIO.LOW)
 
@@ -275,11 +279,6 @@ def automation_loop():
                         if set_appliance("fan", False): ir_actions.append(("fan", False))
                         if set_appliance("ac",  False): ir_actions.append(("ac",  False))
 
-                # ── Nighttime lamp ─────────────────────────────────────────────
-                if is_nighttime():
-                    set_appliance("lamp", True)
-                else:
-                    set_appliance("lamp", False)
 
         # Send IR outside the lock so it never blocks state_lock
         for app_id, val in ir_actions:
@@ -353,10 +352,9 @@ def build_rooms(s: dict) -> list:
             "hasDHT":   True,
             "hasIR":    True,
             "appliances": [
-                {"id": "tv",   "name": "TV",   "icon": "tv",   "on": s["living_room"]["appliances"]["tv"]},
-                {"id": "ac",   "name": "AC",   "icon": "ac",   "on": s["living_room"]["appliances"]["ac"]},
-                {"id": "fan",  "name": "Fan",  "icon": "fan",  "on": s["living_room"]["appliances"]["fan"]},
-                {"id": "lamp", "name": "Lamp", "icon": "lamp", "on": s["living_room"]["appliances"]["lamp"]},
+                {"id": "tv",  "name": "TV",  "icon": "tv",  "on": s["living_room"]["appliances"]["tv"]},
+                {"id": "ac",  "name": "AC",  "icon": "ac",  "on": s["living_room"]["appliances"]["ac"]},
+                {"id": "fan", "name": "Fan", "icon": "fan", "on": s["living_room"]["appliances"]["fan"]},
             ],
         },
         {

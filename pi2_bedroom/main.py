@@ -44,11 +44,13 @@ PIR_PIN   = 24
 DHT_PIN   = 23
 IR_TX_PIN = 18
 IR_RX_PIN = 17
+AC_PIN    = 5
 LAMP_PIN  = 6
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(PIR_PIN,   GPIO.IN)
+GPIO.setup(AC_PIN,    GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(LAMP_PIN,  GPIO.OUT, initial=GPIO.LOW)
 
 # ── State ─────────────────────────────────────────────────────────────────────
@@ -77,7 +79,9 @@ def is_nighttime() -> bool:
     return current >= start or current < end
 
 def _apply_gpio(appliance_id: str, on: bool):
-    if appliance_id == "lamp":
+    if appliance_id == "ac":
+        GPIO.output(AC_PIN,   GPIO.HIGH if on else GPIO.LOW)
+    elif appliance_id == "lamp":
         GPIO.output(LAMP_PIN, GPIO.HIGH if on else GPIO.LOW)
 
 def set_appliance(appliance_id: str, on: bool, manual: bool = False):
