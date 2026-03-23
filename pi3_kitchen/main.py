@@ -15,7 +15,7 @@ import RPi.GPIO as GPIO
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
-    MQTT_BROKER_IP, MQTT_PORT,
+    MANUAL_OVERRIDE_SEC, MQTT_BROKER_IP, MQTT_PORT,
     PIR_TIMEOUT_SEC, SENSOR_PUBLISH_INTERVAL, TOPICS, ULTRASONIC_PRESENCE_CM,
 )
 
@@ -39,10 +39,11 @@ GPIO.setup(LAMP_PIN,  GPIO.OUT, initial=GPIO.LOW)
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
-away_mode      = False
-occupied       = False
-last_seen_time = 0.0   # timestamp of last detected presence
-manual_lamp    = None  # None = auto, True/False = manual override
+away_mode           = False
+occupied            = False
+last_seen_time      = 0.0   # timestamp of last detected presence
+manual_lamp         = None  # None = auto, True/False = manual override
+manual_lamp_expiry  = 0.0   # timestamp when manual override expires
 
 # ── Lamp ──────────────────────────────────────────────────────────────────────
 
@@ -79,7 +80,7 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe(TOPICS["config"])
 
 def on_message(client, userdata, msg):
-    global away_mode, manual_lamp
+    global away_mode, manual_lamp, manual_lamp_expiry
     try:
         payload = json.loads(msg.payload.decode())
     except Exception:
@@ -99,6 +100,7 @@ def on_message(client, userdata, msg):
 
     if payload.get("appliance") == "lamp":
         manual_lamp = bool(payload.get("on", False))
+        manual_lamp_expiry = time.time() + MANUAL_OVERRIDE_SEC
         if not away_mode:
             set_lamp(manual_lamp)
 
@@ -128,6 +130,9 @@ if __name__ == "__main__":
                         occupied = False
 
                 if not away_mode:
+                    # Expire manual override once its window has passed
+                    if manual_lamp is not None and time.time() >= manual_lamp_expiry:
+                        manual_lamp = None
                     if manual_lamp is None:
                         set_lamp(occupied)   # lamp follows presence automatically
                     else:

@@ -346,6 +346,7 @@ function RoomCard({ room, layout, onToggleAppliance, awayMode, index, config, on
 
   const occupied = room.occupied === true && !awayMode
   const hasFan = room.appliances.some(a => a.id === 'fan')
+  const hasLamp = room.appliances.some(a => a.id === 'lamp')
 
   const SectionLabel = ({ children }) => (
     <div style={{
@@ -549,7 +550,7 @@ function RoomCard({ room, layout, onToggleAppliance, awayMode, index, config, on
                     )}
                   </div>
                 </div>
-                {room.hasDHT && (
+                {room.hasDHT && hasLamp && (
                   <div>
                     <SectionLabel>Night Mode — lamp auto-on</SectionLabel>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -732,11 +733,13 @@ export default function App() {
     return () => clearInterval(id)
   }, [])
 
-  // Debounced POST whenever any room config changes
+  // Debounced POST whenever any room config changes.
+  // Each room gets its own timer so rapid changes to different rooms don't cancel each other.
+  const configTimers = useState(() => ({}))[0]
   const updateRoomConfig = (roomId, newConfig) => {
     setRoomConfigs(prev => ({ ...prev, [roomId]: newConfig }))
-    clearTimeout(updateRoomConfig._timer)
-    updateRoomConfig._timer = setTimeout(() => {
+    clearTimeout(configTimers[roomId])
+    configTimers[roomId] = setTimeout(() => {
       fetch(`${API_BASE}/api/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

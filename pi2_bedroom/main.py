@@ -76,7 +76,10 @@ def is_nighttime() -> bool:
         eh, em = map(int, RUNTIME_CONFIG["night_end"].split(":"))
     start = sh * 60 + sm
     end   = eh * 60 + em
-    return current >= start or current < end
+    if start > end:   # night spans midnight (e.g. 19:30 → 07:30)
+        return current >= start or current < end
+    else:             # same-day window (e.g. 08:00 → 20:00)
+        return start <= current < end
 
 def _apply_gpio(appliance_id: str, on: bool):
     if appliance_id == "ac":

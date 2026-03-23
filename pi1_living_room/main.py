@@ -145,10 +145,11 @@ STATE = {
         "overrides":   {},          # appliance_id -> expiry timestamp
     },
     "bedroom": {
-        "occupied": False,
-        "temp":     None,
-        "humidity": None,
-        "appliances": {"ac": False, "lamp": False},
+        "occupied":    False,
+        "last_motion": 0,       # timestamp of last motion pulse from Pi 2
+        "temp":        None,
+        "humidity":    None,
+        "appliances":  {"ac": False, "lamp": False},
     },
     "kitchen": {
         "occupied": False,
@@ -166,7 +167,10 @@ def is_nighttime() -> bool:
     eh, em = map(int, lr_cfg("night_end").split(":"))
     start = sh * 60 + sm
     end   = eh * 60 + em
-    return current >= start or current < end
+    if start > end:   # night spans midnight (e.g. 19:30 → 07:30)
+        return current >= start or current < end
+    else:             # same-day window (e.g. 08:00 → 20:00)
+        return start <= current < end
 
 def _apply_gpio(appliance_id: str, on: bool):
     """Drive LED indicator for each appliance."""
@@ -304,7 +308,13 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     with state_lock:
         if topic == TOPICS["bedroom"]["pir"]:
-            STATE["bedroom"]["occupied"] = bool(payload.get("motion", False))
+            if payload.get("motion", False):
+                STATE["bedroom"]["last_motion"] = time.time()
+                STATE["bedroom"]["occupied"] = True
+            else:
+                timeout = ROOM_CONFIGS["bedroom"]["pir_timeout_sec"]
+                if time.time() - STATE["bedroom"]["last_motion"] > timeout:
+                    STATE["bedroom"]["occupied"] = False
 
         elif topic == TOPICS["bedroom"]["dht"]:
             STATE["bedroom"]["temp"]     = payload.get("temp")
@@ -459,6 +469,7 @@ def set_away():
     data   = request.get_json()
     active = bool(data.get("active", False))
 
+    ir_off = []
     with state_lock:
         STATE["away_mode"] = active
         if active:
@@ -466,11 +477,13 @@ def set_away():
                 STATE["living_room"]["appliances"][k] = False
                 _apply_gpio(k, False)
                 if k in ("tv", "ac", "fan"):
-                    send_ir(k, False)
+                    ir_off.append(k)
             for k in STATE["bedroom"]["appliances"]:
                 STATE["bedroom"]["appliances"][k] = False
 
-    # Notify other Pis
+    # Send IR and notify other Pis outside the lock
+    for k in ir_off:
+        send_ir(k, False)
     mqtt_client.publish(TOPICS["bedroom"]["command"], json.dumps({"away": active}))
     mqtt_client.publish(TOPICS["kitchen"]["command"], json.dumps({"away": active}))
 
