@@ -707,7 +707,22 @@ export default function App() {
       fetch(`${API_BASE}/api/rooms`)
         .then(r => r.json())
         .then(data => {
-          if (data.rooms) setRooms(data.rooms)
+          if (data.rooms) {
+            setRooms(prev => prev.map(room => {
+              const apiRoom = data.rooms.find(r => r.id === room.id)
+              if (!apiRoom) return room
+              return {
+                ...room,
+                occupied: apiRoom.occupied,
+                temp: apiRoom.temp ?? room.temp,
+                humidity: apiRoom.humidity ?? room.humidity,
+                appliances: room.appliances.map(a => {
+                  const apiA = (apiRoom.appliances || []).find(x => x.id === a.id)
+                  return apiA ? { ...a, on: apiA.on } : a
+                }),
+              }
+            }))
+          }
           if (typeof data.awayMode === 'boolean') setAwayMode(data.awayMode)
         })
         .catch(() => { })
