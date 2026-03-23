@@ -42,6 +42,7 @@ GPIO.setup(LAMP_PIN,  GPIO.OUT, initial=GPIO.LOW)
 away_mode      = False
 occupied       = False
 last_seen_time = 0.0   # timestamp of last detected presence
+manual_lamp    = None  # None = auto, True/False = manual override
 
 # ── Lamp ──────────────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe(TOPICS["config"])
 
 def on_message(client, userdata, msg):
-    global away_mode
+    global away_mode, manual_lamp
     try:
         payload = json.loads(msg.payload.decode())
     except Exception:
@@ -92,7 +93,14 @@ def on_message(client, userdata, msg):
     if "away" in payload:
         away_mode = payload["away"]
         if away_mode:
+            manual_lamp = None
             set_lamp(False)
+        return
+
+    if payload.get("appliance") == "lamp":
+        manual_lamp = bool(payload.get("on", False))
+        if not away_mode:
+            set_lamp(manual_lamp)
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
@@ -120,7 +128,10 @@ if __name__ == "__main__":
                         occupied = False
 
                 if not away_mode:
-                    set_lamp(occupied)   # lamp follows presence with PIR_TIMEOUT_SEC delay
+                    if manual_lamp is None:
+                        set_lamp(occupied)   # lamp follows presence automatically
+                    else:
+                        set_lamp(manual_lamp)  # respect manual override
 
                 client.publish(
                     TOPICS["kitchen"]["ultrasonic"],

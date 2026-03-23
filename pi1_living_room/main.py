@@ -150,6 +150,7 @@ STATE = {
     },
     "kitchen": {
         "occupied": False,
+        "appliances": {"lamp": False},
     },
     "away_mode": False,
 }
@@ -379,7 +380,9 @@ def build_rooms(s: dict) -> list:
             "occupied": s["kitchen"]["occupied"],
             "hasDHT":   False,
             "hasIR":    False,
-            "appliances": [],
+            "appliances": [
+                {"id": "lamp", "name": "Lamp", "icon": "lamp", "on": s["kitchen"]["appliances"]["lamp"]},
+            ],
         },
     ]
 
@@ -405,6 +408,13 @@ def toggle_appliance(room_id, appliance_id):
             mqtt_client.publish(
                 TOPICS["bedroom"]["command"],
                 json.dumps({"appliance": appliance_id, "on": on, "manual": True}),
+            )
+
+        elif room_id == "kitchen" and appliance_id in STATE["kitchen"]["appliances"]:
+            STATE["kitchen"]["appliances"][appliance_id] = on
+            mqtt_client.publish(
+                TOPICS["kitchen"]["command"],
+                json.dumps({"appliance": appliance_id, "on": on}),
             )
 
     if send_ir_after:
