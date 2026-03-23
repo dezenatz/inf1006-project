@@ -29,16 +29,12 @@ RUNTIME_CONFIG = {
 
 TRIG_PIN  = 23
 ECHO_PIN  = 24
-LED_RED   = 27
-LED_GREEN = 22
 LAMP_PIN  = 6
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(TRIG_PIN,  GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(ECHO_PIN,  GPIO.IN)
-GPIO.setup(LED_RED,   GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(LED_GREEN, GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(LAMP_PIN,  GPIO.OUT, initial=GPIO.LOW)
 
 # ── State ─────────────────────────────────────────────────────────────────────
@@ -47,15 +43,7 @@ away_mode      = False
 occupied       = False
 last_seen_time = 0.0   # timestamp of last detected presence
 
-# ── LED / Lamp ────────────────────────────────────────────────────────────────
-
-def set_led(is_occupied: bool):
-    if is_occupied:
-        GPIO.output(LED_RED,   GPIO.LOW)
-        GPIO.output(LED_GREEN, GPIO.HIGH)
-    else:
-        GPIO.output(LED_RED,   GPIO.HIGH)
-        GPIO.output(LED_GREEN, GPIO.LOW)
+# ── Lamp ──────────────────────────────────────────────────────────────────────
 
 def set_lamp(on: bool):
     GPIO.output(LAMP_PIN, GPIO.HIGH if on else GPIO.LOW)
@@ -104,7 +92,6 @@ def on_message(client, userdata, msg):
     if "away" in payload:
         away_mode = payload["away"]
         if away_mode:
-            set_led(False)
             set_lamp(False)
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -133,7 +120,6 @@ if __name__ == "__main__":
                         occupied = False
 
                 if not away_mode:
-                    set_led(occupied)
                     set_lamp(occupied)   # lamp follows presence with PIR_TIMEOUT_SEC delay
 
                 client.publish(

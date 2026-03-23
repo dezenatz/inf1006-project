@@ -16,19 +16,19 @@ body {
 
 .app-bg {
   min-height: 100vh;
-  background-color: #F2F2F0;
+  background-color: #F2F2F7;
 }
 
 .app-container {
-  max-width: 960px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 52px 24px 64px;
+  padding: 52px 40px 64px;
 }
 
 .room-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 24px;
 }
 
 @media (max-width: 800px) {

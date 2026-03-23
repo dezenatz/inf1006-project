@@ -1,5 +1,5 @@
 RPi.GPIO
-Adafruit_DHT
+adafruit-circuitpython-dht
 paho-mqtt
 flask
 flask-cors

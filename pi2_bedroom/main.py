@@ -14,7 +14,8 @@ import threading
 import time
 from datetime import datetime
 
-import Adafruit_DHT
+import adafruit_dht
+import board
 import paho.mqtt.client as mqtt
 import RPi.GPIO as GPIO
 
@@ -22,8 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
     DHT_READ_INTERVAL, MANUAL_OVERRIDE_SEC, MQTT_BROKER_IP, MQTT_PORT,
     NIGHT_END_HOUR, NIGHT_END_MIN, NIGHT_START_HOUR, NIGHT_START_MIN,
-    PIR_TIMEOUT_SEC, SENSOR_PUBLISH_INTERVAL, TEMP_AC_THRESHOLD,
-    TEMP_FAN_THRESHOLD, TOPICS, ULTRASONIC_PRESENCE_CM,
+    PIR_TIMEOUT_SEC, SENSOR_PUBLISH_INTERVAL, TEMP_AC_THRESHOLD, TOPICS,
 )
 
 # ── Runtime config ─────────────────────────────────────────────────────────────
@@ -40,23 +40,15 @@ RUNTIME_CONFIG = {
 
 # ── GPIO ──────────────────────────────────────────────────────────────────────
 
-PIR_PIN   = 17
-TRIG_PIN  = 23
-ECHO_PIN  = 24
-DHT_PIN   = 4
+PIR_PIN   = 24
+DHT_PIN   = 23
 IR_TX_PIN = 18
-IR_RX_PIN = 25
-LED_RED   = 27
-LED_GREEN = 22
+IR_RX_PIN = 17
 LAMP_PIN  = 6
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(PIR_PIN,   GPIO.IN)
-GPIO.setup(TRIG_PIN,  GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(ECHO_PIN,  GPIO.IN)
-GPIO.setup(LED_RED,   GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(LED_GREEN, GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(LAMP_PIN,  GPIO.OUT, initial=GPIO.LOW)
 
 # ── State ─────────────────────────────────────────────────────────────────────
@@ -103,38 +95,6 @@ def set_appliance(appliance_id: str, on: bool, manual: bool = False):
     if appliance_id == "ac":
         send_ir(appliance_id, on)
 
-# ── LED ───────────────────────────────────────────────────────────────────────
-
-def set_led(occupied: bool):
-    if occupied:
-        GPIO.output(LED_RED,   GPIO.LOW)
-        GPIO.output(LED_GREEN, GPIO.HIGH)
-    else:
-        GPIO.output(LED_RED,   GPIO.HIGH)
-        GPIO.output(LED_GREEN, GPIO.LOW)
-
-# ── Sensors ───────────────────────────────────────────────────────────────────
-
-def read_ultrasonic() -> float | None:
-    """Return distance in cm, or None on timeout."""
-    GPIO.output(TRIG_PIN, GPIO.HIGH)
-    time.sleep(0.00001)
-    GPIO.output(TRIG_PIN, GPIO.LOW)
-
-    deadline = time.time() + 0.04
-    while GPIO.input(ECHO_PIN) == 0:
-        if time.time() > deadline:
-            return None
-    pulse_start = time.time()
-
-    deadline = time.time() + 0.04
-    while GPIO.input(ECHO_PIN) == 1:
-        if time.time() > deadline:
-            return None
-    pulse_end = time.time()
-
-    return round((pulse_end - pulse_start) * 17150, 1)
-
 # ── IR ────────────────────────────────────────────────────────────────────────
 
 def send_ir(appliance: str, on: bool):
@@ -174,7 +134,6 @@ def on_message(client, userdata, msg):
                 for k in list(STATE["appliances"].keys()):
                     STATE["appliances"][k] = False
                     _apply_gpio(k, False)
-        set_led(False)
         return
 
     # Appliance toggle from dashboard
@@ -244,16 +203,14 @@ def automation_loop(client: mqtt.Client):
 # ── Sensor + publish loop ─────────────────────────────────────────────────────
 
 def sensor_loop(client: mqtt.Client):
-    dht_sensor = Adafruit_DHT.DHT22
+    dht_device = adafruit_dht.DHT22(board.D23)
     last_dht   = 0
 
     while True:
-        distance = read_ultrasonic()
-        pir      = GPIO.input(PIR_PIN)
+        pir = GPIO.input(PIR_PIN)
 
         with state_lock:
-            present = pir or (distance is not None and distance < ULTRASONIC_PRESENCE_CM)
-            if present:
+            if pir:
                 STATE["last_motion"] = time.time()
                 STATE["occupied"]    = True
             else:
@@ -264,15 +221,6 @@ def sensor_loop(client: mqtt.Client):
             occupied  = STATE["occupied"]
             away_mode = STATE["away_mode"]
 
-        set_led(occupied and not away_mode)
-
-        # Publish ultrasonic
-        if distance is not None:
-            client.publish(
-                TOPICS["bedroom"]["ultrasonic"],
-                json.dumps({"distance_cm": distance}),
-            )
-
         # Publish PIR
         client.publish(
             TOPICS["bedroom"]["pir"],
@@ -281,16 +229,20 @@ def sensor_loop(client: mqtt.Client):
 
         # DHT22 (less frequent)
         if time.time() - last_dht >= DHT_READ_INTERVAL:
-            humidity, temp = Adafruit_DHT.read_retry(dht_sensor, DHT_PIN)
-            if temp is not None and humidity is not None:
-                with state_lock:
-                    STATE["temp"]     = round(temp, 1)
-                    STATE["humidity"] = round(humidity, 1)
-                client.publish(
-                    TOPICS["bedroom"]["dht"],
-                    json.dumps({"temp": round(temp, 1), "humidity": round(humidity, 1)}),
-                )
-                print(f"[DHT22] {temp:.1f}°C  {humidity:.1f}%")
+            try:
+                temp     = dht_device.temperature
+                humidity = dht_device.humidity
+                if temp is not None and humidity is not None:
+                    with state_lock:
+                        STATE["temp"]     = round(temp, 1)
+                        STATE["humidity"] = round(humidity, 1)
+                    client.publish(
+                        TOPICS["bedroom"]["dht"],
+                        json.dumps({"temp": round(temp, 1), "humidity": round(humidity, 1)}),
+                    )
+                    print(f"[DHT22] {temp:.1f}°C  {humidity:.1f}%")
+            except RuntimeError as e:
+                print("[DHT] Retry:", e)
             last_dht = time.time()
 
         time.sleep(SENSOR_PUBLISH_INTERVAL)

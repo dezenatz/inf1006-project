@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Slider } from './components/Slider'
 import './index.css'
@@ -24,13 +24,13 @@ const DEFAULT_ROOM_CONFIGS = {
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
 const C = {
-  bg: '#F5F5F3',
+  bg: '#F2F2F7',
   card: '#FFFFFF',
   textPri: '#1C1C1E',
   textSec: '#8E8E93',
   textMute: '#C7C7CC',
-  pillBg: '#F7F7F5',
-  border: '#F2F2F7',
+  pillBg: '#F2F2F7',
+  border: '#E5E5EA',
   green: '#34C759',
   greenBg: '#F0FAF3',
   toggleOff: '#D1D1D6',
@@ -40,21 +40,20 @@ const C = {
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 const TvIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="15" height="15" viewBox="0 2 24 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
     <rect x="2" y="3" width="20" height="14" rx="2.5" />
-    <path d="M8 21h8M12 17v4" />
   </svg>
 )
 
 const AcIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
     <path d="M12 2v20M2 12h20" />
     <path d="M5 5l14 14M19 5 5 19" />
   </svg>
 )
 
 const FanIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
     <circle cx="12" cy="12" r="2" />
     <path d="M12 2a3 3 0 0 1 3 3c0 1.5-.8 2.8-2 3.5" />
     <path d="M22 12a3 3 0 0 1-3 3c-1.5 0-2.8-.8-3.5-2" />
@@ -100,7 +99,7 @@ const ChevronIcon = ({ open }) => (
 )
 
 const LampIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="15" height="15" viewBox="0 2 24 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
     <path d="M9 2h6l2 7H7L9 2z" />
     <path d="M12 9v13M8 22h8" />
   </svg>
@@ -118,10 +117,10 @@ const ICON_MAP = { tv: TvIcon, ac: AcIcon, fan: FanIcon, lamp: LampIcon }
 
 // ─── Top-down appliance illustrations ─────────────────────────────────────────
 
-const TvTopDown = () => <img src="/Tv.webp" width="105" height="105" style={{ display: 'block', objectFit: 'contain' }} />
-const AcTopDown = () => <img src="/ac.png" width="100" height="100" style={{ display: 'block', objectFit: 'contain' }} />
-const FanTopDown = () => <img src="/fan.png" width="64" height="64" style={{ display: 'block', objectFit: 'contain' }} />
-const LampTopDown = () => <img src="/lamp.png" width="40" height="40" style={{ display: 'block', objectFit: 'contain' }} />
+const TvTopDown = () => <img src="/Tv.webp" width="120" height="120" style={{ display: 'block', objectFit: 'contain' }} />
+const AcTopDown = () => <img src="/ac.png" width="150" height="150" style={{ display: 'block', objectFit: 'contain' }} />
+const FanTopDown = () => <img src="/fan.png" width="85" height="85" style={{ display: 'block', objectFit: 'contain' }} />
+const LampTopDown = () => <img src="/lamp.png" width="45" height="45" style={{ display: 'block', objectFit: 'contain' }} />
 
 const TOP_DOWN_MAP = { tv: TvTopDown, ac: AcTopDown, fan: FanTopDown, lamp: LampTopDown }
 
@@ -178,26 +177,29 @@ const ROOM_LAYOUTS = [
   {
     id: 'living-room',
     bg: '/living%20room.png',
+    floorColor: '#AEAAA6',
     appliances: [
       { id: 'fan', x: '50%', y: '48%' },
-      { id: 'ac', x: '50%', y: '7%' },
-      { id: 'tv', x: '50%', y: '92%' },
-      { id: 'lamp', x: '88%', y: '88%' },
+      { id: 'ac', x: '50%', y: '6%' },
+      { id: 'tv', x: '50%', y: '80%' },
+      { id: 'lamp', x: '88%', y: '80%' },
     ],
   },
   {
     id: 'bedroom',
     bg: '/bedroom.png',
+    floorColor: '#B8B3AA',
     appliances: [
-      { id: 'ac', x: '50%', y: '7%' },
-      { id: 'lamp', x: '92%', y: '88%' },
+      { id: 'ac', x: '50%', y: '6%' },
+      { id: 'lamp', x: '92%', y: '80%' },
     ],
   },
   {
     id: 'kitchen',
     bg: '/kitchen.png',
+    floorColor: '#AEAAA4',
     appliances: [
-      { id: 'lamp', x: '10%', y: '94%' },
+      { id: 'lamp', x: '10%', y: '80%' },
     ],
   },
 ]
@@ -264,207 +266,6 @@ function SensorPill({ icon, value }) {
   )
 }
 
-// ─── Room Card ────────────────────────────────────────────────────────────────
-
-function RoomCard({ room, onToggleAppliance, awayMode, index, config, onConfigChange }) {
-  const [autoOpen, setAutoOpen] = useState(false)
-  const occupied = room.occupied === true && !awayMode
-  const hasFan = room.appliances.some(a => a.id === 'fan')
-
-  const SectionLabel = ({ children }) => (
-    <div style={{
-      fontSize: 10, fontWeight: 700, color: C.textMute,
-      letterSpacing: '0.6px', textTransform: 'uppercase', marginBottom: 10,
-    }}>
-      {children}
-    </div>
-  )
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.07, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-      style={{
-        backgroundColor: C.card, borderRadius: 28,
-        padding: '24px 24px 20px',
-        boxShadow: '0 2px 24px rgba(0,0,0,0.05)',
-        display: 'flex', flexDirection: 'column', gap: 16,
-      }}
-    >
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: C.textPri, letterSpacing: '-0.2px' }}>
-            {room.name}
-          </div>
-          <div style={{ fontSize: 12, color: C.textMute, marginTop: 3, fontWeight: 500 }}>
-            {room.pi}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-          <OccupancyDot occupied={occupied} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: C.textMute }}>
-            {awayMode ? 'Away' : room.occupied === null ? 'No data' : occupied ? 'Occupied' : 'Empty'}
-          </span>
-          <motion.button
-            onClick={() => setAutoOpen(p => !p)}
-            animate={{ color: autoOpen ? C.textPri : C.textMute, rotate: autoOpen ? 45 : 0 }}
-            transition={{ duration: 0.2 }}
-            style={{
-              background: 'none', border: 'none', padding: 4, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', borderRadius: 6,
-              backgroundColor: autoOpen ? C.pillBg : 'transparent',
-            }}
-          >
-            <GearIcon />
-          </motion.button>
-        </div>
-      </div>
-
-      {/* ── DHT pills ── */}
-      {room.hasDHT && (
-        <div style={{ display: 'flex', gap: 8 }}>
-          {[
-            { icon: <ThermoIcon />, value: room.temp != null ? `${room.temp}°C` : '—' },
-            { icon: <DropIcon />, value: room.humidity != null ? `${room.humidity}%` : '—' },
-          ].map(({ icon, value }, i) => (
-            <SensorPill key={i} icon={icon} value={value} />
-          ))}
-        </div>
-      )}
-
-      {/* ── Appliances ── */}
-      {room.appliances.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {room.appliances.map((appliance) => {
-            const Icon = ICON_MAP[appliance.icon] || (() => null)
-            const disabled = awayMode || (appliance.icon !== 'lamp' && !room.hasIR)
-            const active = appliance.on && !disabled
-            return (
-              <div key={appliance.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                paddingTop: 12, borderTop: `1px solid ${C.border}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <motion.div
-                    animate={{ backgroundColor: active ? '#F0F0EE' : C.pillBg, color: active ? C.textPri : C.textMute }}
-                    transition={{ duration: 0.2 }}
-                    style={{ width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Icon />
-                  </motion.div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: C.textPri }}>{appliance.name}</div>
-                    {!room.hasIR && appliance.icon !== 'lamp' && (
-                      <div style={{ fontSize: 11, color: C.textMute, marginTop: 1 }}>IR pending</div>
-                    )}
-                  </div>
-                </div>
-                <Toggle
-                  on={appliance.on}
-                  onChange={(val) => onToggleAppliance(room.id, appliance.id, val)}
-                  disabled={disabled}
-                />
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {!room.hasDHT && room.appliances.length === 0 && (
-        <div style={{
-          backgroundColor: C.pillBg, borderRadius: 14, padding: '12px 14px',
-          fontSize: 13, fontWeight: 500, color: C.textSec, textAlign: 'center',
-        }}>
-          Presence indicator only
-        </div>
-      )}
-
-      {/* ── Automation expansion ── */}
-      <AnimatePresence initial={false}>
-        {autoOpen && config && (
-          <motion.div
-            key="auto"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div style={{
-              paddingTop: 16, borderTop: `1px solid ${C.border}`,
-              display: 'flex', flexDirection: 'column', gap: 16,
-            }}>
-
-              {/* Temperature rules (rooms with DHT) */}
-              {room.hasDHT && (
-                <div>
-                  <SectionLabel>Temperature</SectionLabel>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {hasFan && (
-                      <SimSlider
-                        label="Fan on at" value={config.temp_fan_threshold}
-                        min={20} max={40} step={1} unit="°C"
-                        onChange={val => onConfigChange({ ...config, temp_fan_threshold: val })}
-                      />
-                    )}
-                    <SimSlider
-                      label="AC on at" value={config.temp_ac_threshold}
-                      min={25} max={45} step={1} unit="°C"
-                      onChange={val => onConfigChange({ ...config, temp_ac_threshold: val })}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Presence */}
-              <div>
-                <SectionLabel>Presence</SectionLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <SimSlider
-                    label="Mark empty after" value={config.pir_timeout_sec}
-                    min={10} max={600} step={10} unit="s"
-                    onChange={val => onConfigChange({ ...config, pir_timeout_sec: val })}
-                  />
-                  {config.manual_override_sec !== undefined && (
-                    <SimSlider
-                      label="Manual override" value={config.manual_override_sec}
-                      min={30} max={3600} step={30} unit="s"
-                      onChange={val => onConfigChange({ ...config, manual_override_sec: val })}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Night mode (rooms with DHT) */}
-              {room.hasDHT && (
-                <div>
-                  <SectionLabel>Night Mode — lamp auto-on</SectionLabel>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <TimeField
-                      label="Night starts" value={config.night_start}
-                      onChange={val => onConfigChange({ ...config, night_start: val })}
-                    />
-                    <TimeField
-                      label="Night ends" value={config.night_end}
-                      onChange={val => onConfigChange({ ...config, night_end: val })}
-                    />
-                  </div>
-                </div>
-              )}
-
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  )
-}
-
-// ─── Floor Plan ───────────────────────────────────────────────────────────────
-
-
 function ApplianceMarker({ appId, on, onClick }) {
   const TopDown = TOP_DOWN_MAP[appId]
   if (!TopDown) return null
@@ -526,189 +327,247 @@ function TimeField({ label, value, onChange }) {
   )
 }
 
-function FloorPlan({ rooms, onUpdateRoom }) {
-  const [selected, setSelected] = useState(null)
-  const roomMap = Object.fromEntries(rooms.map(r => [r.id, r]))
-  const selRoom = selected ? roomMap[selected] : null
+// ─── Room Card (unified) ──────────────────────────────────────────────────────
 
-  const toggleAppliance = (roomId, appId) => {
-    const room = roomMap[roomId]
-    onUpdateRoom(roomId, {
-      appliances: room.appliances.map(a =>
-        a.id === appId ? { ...a, on: !a.on } : a
-      ),
-    })
+function RoomCard({ room, layout, onToggleAppliance, awayMode, index, config, onConfigChange }) {
+  const [autoOpen, setAutoOpen] = useState(false)
+  const autoRef = useRef(null)
+  const occupied = room.occupied === true && !awayMode
+  const hasFan = room.appliances.some(a => a.id === 'fan')
+
+  const SectionLabel = ({ children }) => (
+    <div style={{
+      fontSize: 10, fontWeight: 700, color: C.textMute,
+      letterSpacing: '0.6px', textTransform: 'uppercase', marginBottom: 10,
+    }}>
+      {children}
+    </div>
+  )
+
+  const toggleOnImage = (appId) => {
+    const appliance = room.appliances.find(a => a.id === appId)
+    if (appliance) onToggleAppliance(room.id, appId, !appliance.on)
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-      {/* Floor plan grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gridTemplateRows: 'auto auto',
-        gap: 6,
-        backgroundColor: C.wall,
-        borderRadius: 18,
-        padding: 6,
-      }}>
-        {ROOM_LAYOUTS.map(layout => {
-          const room = roomMap[layout.id]
-          if (!room) return null
-          const occupied = room.occupied === true
-          const isSelected = selected === layout.id
-
-          const gridPlacement =
-            layout.id === 'living-room' ? { gridColumn: 1, gridRow: 1 }
-              : layout.id === 'bedroom' ? { gridColumn: 1, gridRow: 2 }
-                : { gridColumn: 2, gridRow: '1 / 3' }
-
-          return (
-            <motion.div
-              key={layout.id}
-              onClick={() => setSelected(p => p === layout.id ? null : layout.id)}
-              style={{
-                ...gridPlacement,
-                aspectRatio: layout.id === 'kitchen' ? undefined : '3/2',
-                minHeight: layout.id === 'kitchen' ? 0 : undefined,
-                position: 'relative',
-                borderRadius: 12,
-                cursor: 'pointer',
-                outline: isSelected ? `2px solid ${C.textPri}` : '2px solid transparent',
-                outlineOffset: -2,
-                transition: 'outline 0.2s',
-                backgroundImage: `url(${layout.bg})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                overflow: 'hidden',
-              }}
-            >
-              {/* Photo overlay */}
-              <div style={{
-                position: 'absolute', inset: 0,
-                backgroundColor: occupied ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.40)',
-                transition: 'background-color 0.3s',
-                pointerEvents: 'none',
-              }} />
-
-              {/* Room name */}
-              <div style={{
-                position: 'absolute', top: 8, left: 9,
-                fontSize: 9, fontWeight: 800,
-                color: 'rgba(255,255,255,0.92)',
-                letterSpacing: '0.6px', textTransform: 'uppercase',
-                backgroundColor: 'rgba(255,255,255,0.14)',
-                backdropFilter: 'blur(6px)',
-                borderRadius: 6, padding: '3px 8px',
-                pointerEvents: 'none', zIndex: 1,
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.07, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+      style={{
+        backgroundColor: C.card, borderRadius: 24,
+        boxShadow: '0 1px 0px rgba(255,255,255,0.9) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08), 0 24px 48px rgba(0,0,0,0.06)',
+        border: '1px solid rgba(0,0,0,0.07)',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
+      {/* ── Room image ── */}
+      <div style={{ position: 'relative' }}>
+        <img src={layout.bg} alt={room.name} style={{ width: '100%', height: 'auto', display: 'block' }} />
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: 80,
+          background: `linear-gradient(to bottom, transparent, ${C.card})`,
+          pointerEvents: 'none', zIndex: 2,
+        }} />
+        <div style={{ position: 'absolute', inset: 0 }}>
+          {/* Occupancy overlay */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundColor: occupied ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.38)',
+            transition: 'background-color 0.3s',
+          }} />
+          {room.hasDHT && room.temp != null && (
+            <div style={{
+              position: 'absolute', top: 10, right: 12,
+              fontSize: 9, fontWeight: 700, color: '#FFB340',
+              backgroundColor: 'rgba(255,255,255,0.14)',
+              backdropFilter: 'blur(6px)',
+              borderRadius: 6, padding: '3px 8px', zIndex: 2,
+            }}>
+              {room.temp}° · {room.humidity}%
+            </div>
+          )}
+          {layout.appliances.map(app => {
+            const appState = room.appliances.find(a => a.id === app.id)
+            return (
+              <div key={app.id} style={{
+                position: 'absolute', left: app.x, top: app.y,
+                transform: 'translate(-50%, -50%)', zIndex: 3,
               }}>
-                {room.name}
+                <ApplianceMarker
+                  appId={app.id}
+                  on={appState?.on ?? false}
+                  onClick={() => toggleOnImage(app.id)}
+                />
               </div>
-
-              {/* Temp/humidity badge */}
-              {room.hasDHT && room.temp != null && (
-                <div style={{
-                  position: 'absolute', top: 8, right: 9,
-                  fontSize: 9, fontWeight: 700,
-                  color: '#FFB340',
-                  backgroundColor: 'rgba(255,255,255,0.14)',
-                  backdropFilter: 'blur(6px)',
-                  borderRadius: 6, padding: '3px 8px',
-                  pointerEvents: 'none', zIndex: 1,
-                }}>
-                  {room.temp}° · {room.humidity}%
-                </div>
-              )}
-
-              {/* Appliance markers */}
-              {layout.appliances.map(app => {
-                const appState = room.appliances.find(a => a.id === app.id)
-                return (
-                  <div key={app.id} style={{
-                    position: 'absolute',
-                    left: app.x, top: app.y,
-                    transform: 'translate(-50%, -50%)',
-                    zIndex: 1,
-                  }}>
-                    <ApplianceMarker
-                      appId={app.id}
-                      on={appState?.on ?? false}
-                      onClick={() => toggleAppliance(layout.id, app.id)}
-                    />
-                  </div>
-                )
-              })}
-            </motion.div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
+      {/* ── Controls ── */}
+      <div style={{ padding: '20px 22px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      {/* Hint */}
-      <AnimatePresence>
-        {!selected && (
-          <motion.p
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ fontSize: 12, color: C.textMute, fontWeight: 500, textAlign: 'center', margin: 0 }}
-          >
-            Click a room to edit its settings
-          </motion.p>
-        )}
-      </AnimatePresence>
-
-      {/* Selected room controls */}
-      <AnimatePresence>
-        {selRoom && (
-          <motion.div
-            key={selected}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.25 }}
-            style={{
-              backgroundColor: C.card, borderRadius: 20,
-              padding: '18px 20px',
-              boxShadow: '0 1px 12px rgba(0,0,0,0.04)',
-              display: 'flex', flexDirection: 'column', gap: 14,
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.textPri }}>{selRoom.name}</div>
-                <div style={{ fontSize: 11, color: C.textMute, marginTop: 2 }}>{selRoom.pi}</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: C.textMute }}>
-                  {selRoom.occupied ? 'Occupied' : 'Empty'}
-                </span>
-                <Toggle
-                  on={selRoom.occupied === true}
-                  onChange={val => onUpdateRoom(selected, { occupied: val })}
-                />
-              </div>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: C.textPri, letterSpacing: '-0.2px' }}>
+              {room.name}
             </div>
+            <div style={{ fontSize: 12, color: C.textMute, marginTop: 3, fontWeight: 500 }}>
+              {room.pi}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+            <OccupancyDot occupied={occupied} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: C.textMute }}>
+              {awayMode ? 'Away' : room.occupied === null ? 'No data' : occupied ? 'Occupied' : 'Empty'}
+            </span>
+            <motion.button
+              onClick={() => {
+                const opening = !autoOpen
+                setAutoOpen(opening)
+                if (opening) {
+                  setTimeout(() => {
+                    autoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+                  }, 500)
+                }
+              }}
+              animate={{ color: autoOpen ? C.textPri : C.textMute, rotate: autoOpen ? 45 : 0 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                background: 'none', border: 'none', padding: 4, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', borderRadius: 6,
+                backgroundColor: autoOpen ? C.pillBg : 'transparent',
+              }}
+            >
+              <GearIcon />
+            </motion.button>
+          </div>
+        </div>
 
-            {/* Sliders */}
-            {selRoom.hasDHT && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <SimSlider
-                  label="Temperature" value={selRoom.temp}
-                  min={18} max={35} step={0.1} unit="°C"
-                  onChange={val => onUpdateRoom(selected, { temp: val })}
-                />
-                <SimSlider
-                  label="Humidity" value={selRoom.humidity}
-                  min={30} max={90} step={1} unit="%"
-                  onChange={val => onUpdateRoom(selected, { humidity: val })}
-                />
-              </div>
-            )}
-          </motion.div>
+        {/* DHT pills */}
+        {room.hasDHT && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { icon: <ThermoIcon />, value: room.temp != null ? `${room.temp}°C` : '—' },
+              { icon: <DropIcon />, value: room.humidity != null ? `${room.humidity}%` : '—' },
+            ].map(({ icon, value }, i) => (
+              <SensorPill key={i} icon={icon} value={value} />
+            ))}
+          </div>
         )}
-      </AnimatePresence>
-    </div>
+
+        {/* Appliances */}
+        {room.appliances.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {room.appliances.map((appliance) => {
+              const Icon = ICON_MAP[appliance.icon] || (() => null)
+              const disabled = awayMode || (appliance.icon !== 'lamp' && !room.hasIR)
+              const active = appliance.on && !disabled
+              return (
+                <div
+                  key={appliance.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 0', borderTop: `1px solid ${C.border}`,
+                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <motion.div
+                      animate={{ backgroundColor: active ? '#F0F0EE' : C.pillBg, color: active ? C.textPri : C.textMute }}
+                      transition={{ duration: 0.2 }}
+                      style={{ width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, lineHeight: 0 }}
+                    >
+                      <Icon />
+                    </motion.div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: C.textPri }}>{appliance.name}</div>
+                  </div>
+                  <Toggle
+                    on={appliance.on}
+                    onChange={(val) => onToggleAppliance(room.id, appliance.id, val)}
+                    disabled={disabled}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Automation expansion */}
+        <AnimatePresence initial={false}>
+          {autoOpen && config && (
+            <motion.div
+              key="auto"
+              ref={autoRef}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{
+                paddingTop: 16, borderTop: `1px solid ${C.border}`,
+                display: 'flex', flexDirection: 'column', gap: 16,
+              }}>
+                {room.hasDHT && (
+                  <div>
+                    <SectionLabel>Temperature</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {hasFan && (
+                        <SimSlider
+                          label="Fan on at" value={config.temp_fan_threshold}
+                          min={20} max={40} step={1} unit="°C"
+                          onChange={val => onConfigChange({ ...config, temp_fan_threshold: val })}
+                        />
+                      )}
+                      <SimSlider
+                        label="AC on at" value={config.temp_ac_threshold}
+                        min={25} max={45} step={1} unit="°C"
+                        onChange={val => onConfigChange({ ...config, temp_ac_threshold: val })}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <SectionLabel>Presence</SectionLabel>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <SimSlider
+                      label="Mark empty after" value={config.pir_timeout_sec}
+                      min={10} max={600} step={10} unit="s"
+                      onChange={val => onConfigChange({ ...config, pir_timeout_sec: val })}
+                    />
+                    {config.manual_override_sec !== undefined && (
+                      <SimSlider
+                        label="Manual override" value={config.manual_override_sec}
+                        min={30} max={3600} step={30} unit="s"
+                        onChange={val => onConfigChange({ ...config, manual_override_sec: val })}
+                      />
+                    )}
+                  </div>
+                </div>
+                {room.hasDHT && (
+                  <div>
+                    <SectionLabel>Night Mode — lamp auto-on</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <TimeField
+                        label="Night starts" value={config.night_start}
+                        onChange={val => onConfigChange({ ...config, night_start: val })}
+                      />
+                      <TimeField
+                        label="Night ends" value={config.night_end}
+                        onChange={val => onConfigChange({ ...config, night_end: val })}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </div>
+    </motion.div>
   )
 }
 
@@ -757,6 +616,22 @@ export default function App() {
 
   const occupied = rooms.filter(r => r.occupied === true).length
 
+  const wastedAppliances = rooms.reduce((total, room) => {
+    if (room.occupied) return total
+    return total + (room.appliances || []).filter(a => a.on).length
+  }, 0)
+
+  const energyColor = awayMode ? '#3b82f6'
+    : wastedAppliances === 0 ? '#22c55e'
+      : wastedAppliances === 1 ? '#a3e635'
+        : wastedAppliances === 2 ? '#facc15'
+          : wastedAppliances === 3 ? '#f97316'
+            : '#ef4444'
+
+  const energyLabel = awayMode ? 'Away'
+    : wastedAppliances === 0 ? 'No wastage'
+      : `${wastedAppliances} appliance${wastedAppliances > 1 ? 's' : ''} wasted`
+
   const toggleAppliance = (roomId, applianceId, val) =>
     setRooms(prev => prev.map(room =>
       room.id !== roomId ? room : {
@@ -767,11 +642,6 @@ export default function App() {
       }
     ))
 
-  const updateRoom = (roomId, patch) =>
-    setRooms(prev => prev.map(room =>
-      room.id !== roomId ? room : { ...room, ...patch }
-    ))
-
   return (
     <div style={{ minHeight: '100vh', backgroundColor: C.bg, fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
       <div className="app-container">
@@ -780,74 +650,83 @@ export default function App() {
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}
         >
-          <div>
-            <div style={{ fontSize: 30, fontWeight: 800, color: C.textPri, letterSpacing: '-0.5px' }}>
-              Smart Home
+          {/* Left: date + clock + pill */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+              <div style={{ fontSize: 26, fontWeight: 700, color: C.textPri, letterSpacing: '-0.4px', fontVariantNumeric: 'tabular-nums' }}>
+                {timeStr}
+              </div>
+              <div style={{ fontSize: 13, color: C.textSec, fontWeight: 500 }}>
+                {dateStr}
+              </div>
             </div>
-            <div style={{ fontSize: 13, color: C.textSec, marginTop: 5, fontWeight: 500 }}>
-              {dateStr}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              backgroundColor: C.card, borderRadius: 999,
+              padding: '6px 12px',
+              boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
+              alignSelf: 'flex-start',
+            }}>
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%',
+                backgroundColor: occupied > 0 && !awayMode ? C.green : C.toggleOff,
+              }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.textPri }}>
+                {occupied} of {rooms.length} rooms occupied
+              </span>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
-            <div style={{ fontSize: 26, fontWeight: 700, color: C.textPri, letterSpacing: '-0.4px', fontVariantNumeric: 'tabular-nums' }}>
-              {timeStr}
+
+          {/* Right: energy indicator + away toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              backgroundColor: C.card, borderRadius: 999,
+              padding: '6px 12px',
+              boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
+            }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: '50%',
+                backgroundColor: energyColor,
+                boxShadow: `0 0 6px ${energyColor}`,
+                transition: 'background-color 0.5s ease',
+              }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.textPri }}>
+                {energyLabel}
+              </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <motion.span
-                animate={{ color: C.textSec }}
-                style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}
-              >
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.textSec, display: 'flex', alignItems: 'center', gap: 5 }}>
                 <MoonIcon /> Away
-              </motion.span>
-              <Toggle on={awayMode} onChange={setAwayMode} />
+              </span>
+              <Toggle on={awayMode} onChange={val => {
+                setAwayMode(val)
+                fetch(`${API_BASE}/api/away`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ active: val }),
+                })
+              }} />
             </div>
           </div>
-        </motion.div>
-
-        {/* Summary pill */}
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 7,
-            backgroundColor: C.card, borderRadius: 999,
-            padding: '7px 14px', marginBottom: 24,
-            boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
-          }}
-        >
-          <div style={{
-            width: 7, height: 7, borderRadius: '50%',
-            backgroundColor: occupied > 0 && !awayMode ? C.green : C.toggleOff,
-          }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.textPri }}>
-            {occupied} of {rooms.length} rooms occupied
-          </span>
-        </motion.div>
-
-        {/* Simulator */}
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          transition={{ delay: 0.25 }} style={{ marginBottom: 32 }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.textMute, letterSpacing: '0.6px', textTransform: 'uppercase', marginBottom: 12 }}>
-            Simulator
-          </div>
-          <FloorPlan rooms={rooms} onUpdateRoom={updateRoom} />
         </motion.div>
 
         {/* Room cards */}
         <div className="room-grid">
-          {rooms.map((room, i) => (
-            <RoomCard
-              key={room.id} room={room} index={i}
-              awayMode={awayMode} onToggleAppliance={toggleAppliance}
-              config={roomConfigs[room.id]}
-              onConfigChange={cfg => updateRoomConfig(room.id, cfg)}
-            />
-          ))}
+          {rooms.map((room, i) => {
+            const layout = ROOM_LAYOUTS.find(l => l.id === room.id)
+            return (
+              <RoomCard
+                key={room.id} room={room} layout={layout} index={i}
+                awayMode={awayMode} onToggleAppliance={toggleAppliance}
+                config={roomConfigs[room.id]}
+                onConfigChange={cfg => updateRoomConfig(room.id, cfg)}
+              />
+            )
+          })}
         </div>
-
 
       </div>
     </div>
