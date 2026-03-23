@@ -703,6 +703,22 @@ export default function App() {
       .catch(() => { })
   }, [])
 
+  // Poll /api/rooms every 2 seconds for live room state
+  useEffect(() => {
+    const poll = () => {
+      fetch(`${API_BASE}/api/rooms`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.rooms) setRooms(data.rooms)
+          if (typeof data.awayMode === 'boolean') setAwayMode(data.awayMode)
+        })
+        .catch(() => { })
+    }
+    poll()
+    const id = setInterval(poll, 2000)
+    return () => clearInterval(id)
+  }, [])
+
   // Debounced POST whenever any room config changes
   const updateRoomConfig = (roomId, newConfig) => {
     setRoomConfigs(prev => ({ ...prev, [roomId]: newConfig }))
@@ -734,7 +750,8 @@ export default function App() {
     : wastedAppliances === 0 ? 'No wastage'
       : `${wastedAppliances} appliance${wastedAppliances > 1 ? 's' : ''} wasted`
 
-  const toggleAppliance = (roomId, applianceId, val) =>
+  const toggleAppliance = (roomId, applianceId, val) => {
+    // Optimistic UI update
     setRooms(prev => prev.map(room =>
       room.id !== roomId ? room : {
         ...room,
@@ -743,6 +760,13 @@ export default function App() {
         ),
       }
     ))
+    // Send to Pi 1
+    fetch(`${API_BASE}/api/rooms/${roomId}/appliances/${applianceId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ on: val }),
+    }).catch(() => { })
+  }
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: C.bg, fontFamily: '"Plus Jakarta Sans", sans-serif' }}>

@@ -172,10 +172,10 @@ def _apply_gpio(appliance_id: str, on: bool):
     elif appliance_id == "fan":
         GPIO.output(FAN_PIN, GPIO.HIGH if on else GPIO.LOW)
 
-def set_appliance(appliance_id: str, on: bool, manual: bool = False):
+def set_appliance(appliance_id: str, on: bool, manual: bool = False) -> bool:
     """
-    Update appliance state, drive GPIO/IR, and record override expiry.
-    Must be called while state_lock is held.
+    Update appliance state and drive GPIO. Returns True if IR should be sent.
+    Must be called while state_lock is held. IR sending must happen outside the lock.
     """
     STATE["living_room"]["appliances"][appliance_id] = on
     if manual:
@@ -185,10 +185,9 @@ def set_appliance(appliance_id: str, on: bool, manual: bool = False):
         exp = STATE["living_room"]["overrides"].get(appliance_id, 0)
         if time.time() < exp:
             # still within manual override window — do not apply automation
-            return
+            return False
     _apply_gpio(appliance_id, on)
-    if appliance_id in ("tv", "ac", "fan"):
-        send_ir(appliance_id, on)
+    return appliance_id in ("tv", "ac", "fan")
 
 # ── PIR loop ──────────────────────────────────────────────────────────────────
 
@@ -242,6 +241,7 @@ def automation_loop():
     """
     while True:
         time.sleep(10)
+        ir_actions = []
         with state_lock:
             if STATE["away_mode"]:
                 continue
@@ -255,28 +255,34 @@ def automation_loop():
                 for app_id in list(STATE["living_room"]["appliances"].keys()):
                     exp = STATE["living_room"]["overrides"].get(app_id, 0)
                     if now >= exp:   # override expired or never set
-                        set_appliance(app_id, False)
-                continue
+                        if set_appliance(app_id, False):
+                            ir_actions.append((app_id, False))
+                # fall through to send IR outside lock
 
-            # ── Temperature rules ──────────────────────────────────────────
-            if temp is not None:
-                t_ac  = lr_cfg("temp_ac_threshold")
-                t_fan = lr_cfg("temp_fan_threshold")
-                if temp >= t_ac:
-                    set_appliance("ac",  True)
-                    set_appliance("fan", False)
-                elif temp >= t_fan:
-                    set_appliance("fan", True)
-                    set_appliance("ac",  False)
-                else:
-                    set_appliance("fan", False)
-                    set_appliance("ac",  False)
-
-            # ── Nighttime lamp ─────────────────────────────────────────────
-            if is_nighttime():
-                set_appliance("lamp", True)
             else:
-                set_appliance("lamp", False)
+                # ── Temperature rules ──────────────────────────────────────────
+                if temp is not None:
+                    t_ac  = lr_cfg("temp_ac_threshold")
+                    t_fan = lr_cfg("temp_fan_threshold")
+                    if temp >= t_ac:
+                        if set_appliance("ac",  True):  ir_actions.append(("ac",  True))
+                        if set_appliance("fan", False): ir_actions.append(("fan", False))
+                    elif temp >= t_fan:
+                        if set_appliance("fan", True):  ir_actions.append(("fan", True))
+                        if set_appliance("ac",  False): ir_actions.append(("ac",  False))
+                    else:
+                        if set_appliance("fan", False): ir_actions.append(("fan", False))
+                        if set_appliance("ac",  False): ir_actions.append(("ac",  False))
+
+                # ── Nighttime lamp ─────────────────────────────────────────────
+                if is_nighttime():
+                    set_appliance("lamp", True)
+                else:
+                    set_appliance("lamp", False)
+
+        # Send IR outside the lock so it never blocks state_lock
+        for app_id, val in ir_actions:
+            send_ir(app_id, val)
 
 # ── MQTT ──────────────────────────────────────────────────────────────────────
 
@@ -388,10 +394,11 @@ def get_rooms():
 def toggle_appliance(room_id, appliance_id):
     data = request.get_json()
     on   = bool(data.get("on", False))
+    send_ir_after = False
 
     with state_lock:
         if room_id == "living-room" and appliance_id in STATE["living_room"]["appliances"]:
-            set_appliance(appliance_id, on, manual=True)
+            send_ir_after = set_appliance(appliance_id, on, manual=True)
 
         elif room_id == "bedroom" and appliance_id in STATE["bedroom"]["appliances"]:
             STATE["bedroom"]["appliances"][appliance_id] = on
@@ -399,6 +406,9 @@ def toggle_appliance(room_id, appliance_id):
                 TOPICS["bedroom"]["command"],
                 json.dumps({"appliance": appliance_id, "on": on, "manual": True}),
             )
+
+    if send_ir_after:
+        send_ir(appliance_id, on)
 
     return jsonify({"ok": True})
 
