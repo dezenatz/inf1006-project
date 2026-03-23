@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Slider } from './components/Slider'
 import './index.css'
 
-const API_BASE = 'http://192.168.1.100:5000'   // ← Pi 1 IP
+const API_BASE = 'http://192.168.137.212:5000'   // ← Pi 1 IP
 
 const DEFAULT_ROOM_CONFIGS = {
   'living-room': {
@@ -40,20 +40,20 @@ const C = {
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 const TvIcon = () => (
-  <svg width="15" height="15" viewBox="0 2 24 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
+  <svg width="15" height="15" viewBox="0 2 24 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
     <rect x="2" y="3" width="20" height="14" rx="2.5" />
   </svg>
 )
 
 const AcIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
     <path d="M12 2v20M2 12h20" />
     <path d="M5 5l14 14M19 5 5 19" />
   </svg>
 )
 
 const FanIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
     <circle cx="12" cy="12" r="2" />
     <path d="M12 2a3 3 0 0 1 3 3c0 1.5-.8 2.8-2 3.5" />
     <path d="M22 12a3 3 0 0 1-3 3c-1.5 0-2.8-.8-3.5-2" />
@@ -99,7 +99,7 @@ const ChevronIcon = ({ open }) => (
 )
 
 const LampIcon = () => (
-  <svg width="15" height="15" viewBox="0 2 24 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block'}}>
+  <svg width="15" height="15" viewBox="0 2 24 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
     <path d="M9 2h6l2 7H7L9 2z" />
     <path d="M12 9v13M8 22h8" />
   </svg>
@@ -109,6 +109,20 @@ const GearIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+)
+
+const SimulatorIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <path d="M8 21h8M12 17v4" />
+    <path d="M7 8l3 3-3 3M13 14h4" />
+  </svg>
+)
+
+const CloseIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 6 6 18M6 6l12 12" />
   </svg>
 )
 
@@ -181,8 +195,8 @@ const ROOM_LAYOUTS = [
     appliances: [
       { id: 'fan', x: '50%', y: '48%' },
       { id: 'ac', x: '50%', y: '6%' },
-      { id: 'tv', x: '50%', y: '80%' },
-      { id: 'lamp', x: '88%', y: '80%' },
+      { id: 'tv', x: '50%', y: '75%' },
+      { id: 'lamp', x: '88%', y: '70%' },
     ],
   },
   {
@@ -191,7 +205,7 @@ const ROOM_LAYOUTS = [
     floorColor: '#B8B3AA',
     appliances: [
       { id: 'ac', x: '50%', y: '6%' },
-      { id: 'lamp', x: '92%', y: '80%' },
+      { id: 'lamp', x: '92%', y: '70%' },
     ],
   },
   {
@@ -199,7 +213,7 @@ const ROOM_LAYOUTS = [
     bg: '/kitchen.png',
     floorColor: '#AEAAA4',
     appliances: [
-      { id: 'lamp', x: '10%', y: '80%' },
+      { id: 'lamp', x: '10%', y: '70%' },
     ],
   },
 ]
@@ -331,7 +345,7 @@ function TimeField({ label, value, onChange }) {
 
 function RoomCard({ room, layout, onToggleAppliance, awayMode, index, config, onConfigChange }) {
   const [autoOpen, setAutoOpen] = useState(false)
-  const autoRef = useRef(null)
+
   const occupied = room.occupied === true && !awayMode
   const hasFan = room.appliances.some(a => a.id === 'fan')
 
@@ -425,15 +439,7 @@ function RoomCard({ room, layout, onToggleAppliance, awayMode, index, config, on
               {awayMode ? 'Away' : room.occupied === null ? 'No data' : occupied ? 'Occupied' : 'Empty'}
             </span>
             <motion.button
-              onClick={() => {
-                const opening = !autoOpen
-                setAutoOpen(opening)
-                if (opening) {
-                  setTimeout(() => {
-                    autoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-                  }, 500)
-                }
-              }}
+              onClick={() => setAutoOpen(o => !o)}
               animate={{ color: autoOpen ? C.textPri : C.textMute, rotate: autoOpen ? 45 : 0 }}
               transition={{ duration: 0.2 }}
               style={{
@@ -499,7 +505,6 @@ function RoomCard({ room, layout, onToggleAppliance, awayMode, index, config, on
           {autoOpen && config && (
             <motion.div
               key="auto"
-              ref={autoRef}
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
@@ -585,12 +590,109 @@ function useClock() {
   }
 }
 
+// ─── Simulator Sidebar ────────────────────────────────────────────────────────
+
+function SimulatorSidebar({ open, onClose, rooms, onOccupancyChange }) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            style={{
+              position: 'fixed', inset: 0,
+              backgroundColor: 'rgba(0,0,0,0.18)',
+              zIndex: 100,
+            }}
+          />
+
+          {/* Drawer */}
+          <motion.div
+            key="drawer"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+            style={{
+              position: 'fixed', top: 0, right: 0, bottom: 0,
+              width: 300,
+              backgroundColor: C.card,
+              boxShadow: '-8px 0 40px rgba(0,0,0,0.12)',
+              zIndex: 101,
+              display: 'flex', flexDirection: 'column',
+              overflowY: 'auto',
+            }}
+          >
+            {/* Drawer header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '20px 20px 16px',
+              borderBottom: `1px solid ${C.border}`,
+              position: 'sticky', top: 0, backgroundColor: C.card, zIndex: 1,
+            }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.textPri }}>Simulator</div>
+                <div style={{ fontSize: 12, color: C.textSec, marginTop: 2 }}>Manually set room occupancy</div>
+              </div>
+              <motion.button
+                onClick={onClose}
+                whileHover={{ backgroundColor: C.pillBg }}
+                whileTap={{ scale: 0.92 }}
+                style={{
+                  width: 32, height: 32, borderRadius: 10, border: 'none',
+                  backgroundColor: 'transparent', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: C.textSec,
+                }}
+              >
+                <CloseIcon />
+              </motion.button>
+            </div>
+
+            {/* Occupancy controls */}
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {rooms.map((room, i) => (
+                <div
+                  key={room.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '14px 0',
+                    borderBottom: i < rooms.length - 1 ? `1px solid ${C.border}` : 'none',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: C.textPri }}>{room.name}</div>
+                    <div style={{ fontSize: 12, color: C.textSec, marginTop: 2 }}>
+                      {room.occupied ? 'Occupied' : 'Empty'}
+                    </div>
+                  </div>
+                  <Toggle
+                    on={room.occupied === true}
+                    onChange={val => onOccupancyChange(room.id, val)}
+                  />
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  )
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [rooms, setRooms] = useState(INITIAL_ROOMS)
   const [awayMode, setAwayMode] = useState(false)
   const [roomConfigs, setRoomConfigs] = useState(DEFAULT_ROOM_CONFIGS)
+  const [simOpen, setSimOpen] = useState(false)
   const { timeStr, dateStr } = useClock()
 
   // Fetch current per-room configs from Pi 1 on mount
@@ -644,61 +746,93 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: C.bg, fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+
+      {/* Simulator button — fixed top right */}
+      <motion.button
+        onClick={() => setSimOpen(true)}
+        whileHover={{ backgroundColor: C.border }}
+        whileTap={{ scale: 0.92 }}
+        style={{
+          position: 'fixed', top: 20, right: 24, zIndex: 50,
+          width: 40, height: 40, borderRadius: 12, border: 'none',
+          backgroundColor: C.card, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: C.textSec,
+          boxShadow: '0 1px 8px rgba(0,0,0,0.08)',
+        }}
+      >
+        <SimulatorIcon />
+      </motion.button>
+
+      {/* Simulator sidebar */}
+      <SimulatorSidebar
+        open={simOpen}
+        onClose={() => setSimOpen(false)}
+        rooms={rooms}
+        onOccupancyChange={(roomId, val) =>
+          setRooms(prev => prev.map(r => r.id === roomId ? { ...r, occupied: val } : r))
+        }
+      />
+
       <div className="app-container">
 
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 32 }}
         >
-          {/* Left: date + clock + pill */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <div style={{ fontSize: 26, fontWeight: 700, color: C.textPri, letterSpacing: '-0.4px', fontVariantNumeric: 'tabular-nums' }}>
-                {timeStr}
-              </div>
-              <div style={{ fontSize: 13, color: C.textSec, fontWeight: 500 }}>
-                {dateStr}
-              </div>
+          {/* Clock + date centered */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <div style={{ fontSize: 32, fontWeight: 700, color: C.textPri, letterSpacing: '-0.6px', fontVariantNumeric: 'tabular-nums' }}>
+              {timeStr}
             </div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              backgroundColor: C.card, borderRadius: 999,
-              padding: '6px 12px',
-              boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
-              alignSelf: 'flex-start',
-            }}>
+            <div style={{ fontSize: 13, color: C.textSec, fontWeight: 500 }}>
+              {dateStr}
+            </div>
+          </div>
+
+          {/* Single pill: rooms occupied | energy | away */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center',
+            backgroundColor: C.card, borderRadius: 999,
+            padding: '7px 16px',
+            boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
+            gap: 0,
+          }}>
+            {/* Rooms occupied */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px 0 0' }}>
               <div style={{
                 width: 7, height: 7, borderRadius: '50%',
                 backgroundColor: occupied > 0 && !awayMode ? C.green : C.toggleOff,
               }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.textPri }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.textPri, whiteSpace: 'nowrap' }}>
                 {occupied} of {rooms.length} rooms occupied
               </span>
             </div>
-          </div>
 
-          {/* Right: energy indicator + away toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              backgroundColor: C.card, borderRadius: 999,
-              padding: '6px 12px',
-              boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
-            }}>
+            {/* Divider */}
+            <div style={{ width: 1, height: 14, backgroundColor: C.border, flexShrink: 0 }} />
+
+            {/* Energy */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px' }}>
               <div style={{
-                width: 8, height: 8, borderRadius: '50%',
+                width: 7, height: 7, borderRadius: '50%',
                 backgroundColor: energyColor,
-                boxShadow: `0 0 6px ${energyColor}`,
+                boxShadow: `0 0 5px ${energyColor}`,
                 transition: 'background-color 0.5s ease',
               }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.textPri }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.textPri, whiteSpace: 'nowrap' }}>
                 {energyLabel}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: C.textSec, display: 'flex', alignItems: 'center', gap: 5 }}>
+
+            {/* Divider */}
+            <div style={{ width: 1, height: 14, backgroundColor: C.border, flexShrink: 0 }} />
+
+            {/* Away toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 0 0 12px' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.textSec, display: 'flex', alignItems: 'center', gap: 5 }}>
                 <MoonIcon /> Away
               </span>
               <Toggle on={awayMode} onChange={val => {
