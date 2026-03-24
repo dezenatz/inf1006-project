@@ -33,8 +33,8 @@ SENSOR_PUBLISH_INTERVAL = 5     # seconds between MQTT publishes
 
 # ── Automation ────────────────────────────────────────────────────────────────
 MANUAL_OVERRIDE_SEC  = 120   # prototype: respect manual toggle for 2 min (prod = 3600)
-TEMP_FAN_THRESHOLD   = 30    # °C — turn fan ON when occupied and temp ≥ this
-TEMP_AC_THRESHOLD    = 35    # °C — turn AC ON (fan OFF) when occupied and temp ≥ this
+TEMP_FAN_THRESHOLD   = 20    # °C — turn fan ON when occupied and temp ≥ this
+TEMP_AC_THRESHOLD    = 25    # °C — turn AC ON (fan OFF) when occupied and temp ≥ this
 NIGHT_START_HOUR     = 19    # 19:30 → lamp auto-on if occupied
 NIGHT_START_MIN      = 30
 NIGHT_END_HOUR       = 7     # 07:30 → lamp auto-off
