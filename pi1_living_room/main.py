@@ -55,6 +55,8 @@ ROOM_CONFIGS = {
     },
     "kitchen": {
         "pir_timeout_sec": PIR_TIMEOUT_SEC,
+        "night_start":     _night,
+        "night_end":       _dawn,
     },
 }
 
