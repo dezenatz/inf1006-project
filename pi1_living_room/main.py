@@ -2,8 +2,9 @@
 """
 Pi 1 — Living Room
 Role : Central server + MQTT broker host + living room sensors
-Sensors : PIR (GPIO 24), DHT22 (GPIO 23), IR TX (GPIO 18), IR RX (GPIO 17),
-          RGB LED (GPIO 27/22/12), Lamp relay (GPIO 6), Fan relay (GPIO 13)
+Sensors : PIR (GPIO 24), DHT22 (GPIO 23),
+          IR Sensor A (GPIO 17), IR Sensor B (GPIO 18),
+          RGB LED (GPIO 27/22/12), TV relay (GPIO 5), AC relay (GPIO 6), Fan relay (GPIO 13)
 """
 
 import json
@@ -25,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
     DHT_READ_INTERVAL, FLASK_PORT, MANUAL_OVERRIDE_SEC, MQTT_BROKER_IP,
     MQTT_PORT, NIGHT_END_HOUR, NIGHT_END_MIN, NIGHT_START_HOUR,
-    NIGHT_START_MIN, PIR_TIMEOUT_SEC, SENSOR_PUBLISH_INTERVAL,
+    NIGHT_START_MIN, PIR_TIMEOUT_SEC,
     TEMP_AC_THRESHOLD, TEMP_FAN_THRESHOLD, TOPICS, ULTRASONIC_PRESENCE_CM,
 )
 
@@ -64,20 +65,22 @@ def lr_cfg(key):
 
 # ── GPIO ──────────────────────────────────────────────────────────────────────
 
-PIR_PIN   = 24
-DHT_PIN   = 23
-IR_TX_PIN = 18
-IR_RX_PIN = 17
-TV_PIN    = 5
-AC_PIN    = 6
-FAN_PIN   = 13
-RGB_RED   = 27
-RGB_GREEN = 22
-RGB_BLUE  = 12
+PIR_PIN      = 24
+DHT_PIN      = 23
+SENSOR_A_PIN = 17   # IR sensor A — triggers first when entering
+SENSOR_B_PIN = 18   # IR sensor B — triggers first when leaving
+TV_PIN       = 5
+AC_PIN       = 6
+FAN_PIN      = 13
+RGB_RED      = 27
+RGB_GREEN    = 22
+RGB_BLUE     = 12
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-GPIO.setup(PIR_PIN,   GPIO.IN)
+GPIO.setup(PIR_PIN,      GPIO.IN)
+GPIO.setup(SENSOR_A_PIN, GPIO.IN)
+GPIO.setup(SENSOR_B_PIN, GPIO.IN)
 GPIO.setup(TV_PIN,    GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(AC_PIN,    GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(FAN_PIN,   GPIO.OUT, initial=GPIO.LOW)
@@ -108,11 +111,10 @@ def update_energy_led():
     """
     with state_lock:
         away = STATE["away_mode"]
-        lr_occupied  = STATE["living_room"]["occupied"]
-        lr_appliances = STATE["living_room"]["appliances"]
-        bed_occupied  = STATE["bedroom"]["occupied"]
-        bed_appliances = STATE["bedroom"]["appliances"]
-        kit_occupied  = STATE["kitchen"]["occupied"]
+        lr_occupied    = STATE["living_room"]["occupied"]
+        lr_appliances  = dict(STATE["living_room"]["appliances"])   # copy, not reference
+        bed_occupied   = STATE["bedroom"]["occupied"]
+        bed_appliances = dict(STATE["bedroom"]["appliances"])       # copy, not reference
 
     if away:
         set_rgb(0, 0, 100)   # Blue
@@ -152,10 +154,13 @@ STATE = {
         "appliances":  {"ac": False, "lamp": False},
     },
     "kitchen": {
-        "occupied": False,
+        "occupied":  False,
+        "last_seen": 0,
         "appliances": {"lamp": False},
     },
-    "away_mode": False,
+    "away_mode":      False,
+    "household_size": 3,    # configurable from dashboard
+    "occupant_count": 3,    # starts equal to household_size
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -173,7 +178,7 @@ def is_nighttime() -> bool:
         return start <= current < end
 
 def _apply_gpio(appliance_id: str, on: bool):
-    """Drive LED indicator for each appliance."""
+    """Drive relay for each appliance."""
     if appliance_id == "tv":
         GPIO.output(TV_PIN,  GPIO.HIGH if on else GPIO.LOW)
     elif appliance_id == "ac":
@@ -181,22 +186,114 @@ def _apply_gpio(appliance_id: str, on: bool):
     elif appliance_id == "fan":
         GPIO.output(FAN_PIN, GPIO.HIGH if on else GPIO.LOW)
 
-def set_appliance(appliance_id: str, on: bool, manual: bool = False) -> bool:
+def set_appliance(appliance_id: str, on: bool, manual: bool = False):
     """
-    Update appliance state and drive GPIO. Returns True if IR should be sent.
-    Must be called while state_lock is held. IR sending must happen outside the lock.
+    Update appliance state and drive GPIO relay.
+    Must be called while state_lock is held.
     """
-    STATE["living_room"]["appliances"][appliance_id] = on
     if manual:
         STATE["living_room"]["overrides"][appliance_id] = time.time() + lr_cfg("manual_override_sec")
     else:
-        # automation — clear any expired override (don't clear a live one)
+        # automation — do not apply if a live manual override exists
         exp = STATE["living_room"]["overrides"].get(appliance_id, 0)
         if time.time() < exp:
-            # still within manual override window — do not apply automation
-            return False
+            return
+    STATE["living_room"]["appliances"][appliance_id] = on
     _apply_gpio(appliance_id, on)
-    return appliance_id in ("tv", "ac", "fan")
+
+# ── IR entry/exit counter ─────────────────────────────────────────────────────
+
+DIRECTION_WINDOW_SEC = 1.5   # max seconds between the two sensor triggers
+
+_ir_ts   = {"a": 0.0, "b": 0.0}
+_ir_lock = threading.Lock()
+
+def _all_appliances_off():
+    """Force every appliance off across all rooms (house empty)."""
+    with state_lock:
+        for k in STATE["living_room"]["appliances"]:
+            STATE["living_room"]["appliances"][k] = False
+            _apply_gpio(k, False)
+        for k in STATE["bedroom"]["appliances"]:
+            STATE["bedroom"]["appliances"][k] = False
+    for k in ["ac", "lamp"]:
+        mqtt_client.publish(TOPICS["bedroom"]["command"],
+                            json.dumps({"appliance": k, "on": False}))
+    mqtt_client.publish(TOPICS["kitchen"]["command"],
+                        json.dumps({"appliance": "lamp", "on": False}))
+    print("[IR] House empty — all appliances off")
+
+def _handle_enter():
+    with state_lock:
+        if STATE["occupant_count"] < STATE["household_size"]:
+            STATE["occupant_count"] += 1
+        count = STATE["occupant_count"]
+        size  = STATE["household_size"]
+    print(f"[IR] Person entered  → {count}/{size} home")
+
+def _handle_leave():
+    turn_off = False
+    with state_lock:
+        if STATE["occupant_count"] > 0:
+            STATE["occupant_count"] -= 1
+        count = STATE["occupant_count"]
+        size  = STATE["household_size"]
+        if count == 0:
+            turn_off = True
+    print(f"[IR] Person left     → {count}/{size} home")
+    if turn_off:
+        _all_appliances_off()
+
+def ir_entry_exit_loop():
+    """
+    Poll both IR sensors at 50 Hz.
+    Detects direction by which sensor breaks first:
+      A then B (within DIRECTION_WINDOW_SEC) → entering
+      B then A (within DIRECTION_WINDOW_SEC) → leaving
+    Sensors output LOW when object detected.
+    """
+    prev_a = GPIO.HIGH
+    prev_b = GPIO.HIGH
+
+    while True:
+        a   = GPIO.input(SENSOR_A_PIN)
+        b   = GPIO.input(SENSOR_B_PIN)
+        now = time.time()
+        action = None
+
+        with _ir_lock:
+            # Detect falling edge (HIGH → LOW = object detected)
+            if prev_a == GPIO.HIGH and a == GPIO.LOW:
+                _ir_ts["a"] = now
+            if prev_b == GPIO.HIGH and b == GPIO.LOW:
+                _ir_ts["b"] = now
+
+            ta = _ir_ts["a"]
+            tb = _ir_ts["b"]
+
+            if ta > 0 and tb > 0:
+                diff = tb - ta
+                if 0 < diff <= DIRECTION_WINDOW_SEC:       # A first → entering
+                    _ir_ts["a"] = _ir_ts["b"] = 0.0
+                    action = "enter"
+                elif -DIRECTION_WINDOW_SEC <= diff < 0:    # B first → leaving
+                    _ir_ts["a"] = _ir_ts["b"] = 0.0
+                    action = "leave"
+
+            # Clear stale timestamps
+            if ta > 0 and now - ta > DIRECTION_WINDOW_SEC * 2:
+                _ir_ts["a"] = 0.0
+            if tb > 0 and now - tb > DIRECTION_WINDOW_SEC * 2:
+                _ir_ts["b"] = 0.0
+
+        if action == "enter":
+            _handle_enter()
+        elif action == "leave":
+            _handle_leave()
+
+        prev_a = a
+        prev_b = b
+        time.sleep(0.02)   # 50 Hz
 
 # ── PIR loop ──────────────────────────────────────────────────────────────────
 
@@ -212,9 +309,6 @@ def pir_loop():
                 elapsed = time.time() - STATE["living_room"]["last_motion"]
                 if elapsed > lr_cfg("pir_timeout_sec"):
                     STATE["living_room"]["occupied"] = False
-            occupied  = STATE["living_room"]["occupied"]
-            away_mode = STATE["away_mode"]
-
         time.sleep(0.5)
 
 # ── DHT22 loop ────────────────────────────────────────────────────────────────
@@ -250,9 +344,8 @@ def automation_loop():
     """
     while True:
         time.sleep(10)
-        ir_actions = []
         with state_lock:
-            if STATE["away_mode"]:
+            if STATE["away_mode"] or STATE["occupant_count"] == 0:
                 continue
 
             occupied = STATE["living_room"]["occupied"]
@@ -264,9 +357,7 @@ def automation_loop():
                 for app_id in list(STATE["living_room"]["appliances"].keys()):
                     exp = STATE["living_room"]["overrides"].get(app_id, 0)
                     if now >= exp:   # override expired or never set
-                        if set_appliance(app_id, False):
-                            ir_actions.append((app_id, False))
-                # fall through to send IR outside lock
+                        set_appliance(app_id, False)
 
             else:
                 # ── Temperature rules ──────────────────────────────────────────
@@ -274,19 +365,14 @@ def automation_loop():
                     t_ac  = lr_cfg("temp_ac_threshold")
                     t_fan = lr_cfg("temp_fan_threshold")
                     if temp >= t_ac:
-                        if set_appliance("ac",  True):  ir_actions.append(("ac",  True))
-                        if set_appliance("fan", False): ir_actions.append(("fan", False))
+                        set_appliance("ac",  True)
+                        set_appliance("fan", False)
                     elif temp >= t_fan:
-                        if set_appliance("fan", True):  ir_actions.append(("fan", True))
-                        if set_appliance("ac",  False): ir_actions.append(("ac",  False))
+                        set_appliance("fan", True)
+                        set_appliance("ac",  False)
                     else:
-                        if set_appliance("fan", False): ir_actions.append(("fan", False))
-                        if set_appliance("ac",  False): ir_actions.append(("ac",  False))
-
-
-        # Send IR outside the lock so it never blocks state_lock
-        for app_id, val in ir_actions:
-            send_ir(app_id, val)
+                        set_appliance("fan", False)
+                        set_appliance("ac",  False)
 
 # ── MQTT ──────────────────────────────────────────────────────────────────────
 
@@ -312,7 +398,8 @@ def on_message(client, userdata, msg):
                 STATE["bedroom"]["last_motion"] = time.time()
                 STATE["bedroom"]["occupied"] = True
             else:
-                timeout = ROOM_CONFIGS["bedroom"]["pir_timeout_sec"]
+                with config_lock:
+                    timeout = ROOM_CONFIGS["bedroom"]["pir_timeout_sec"]
                 if time.time() - STATE["bedroom"]["last_motion"] > timeout:
                     STATE["bedroom"]["occupied"] = False
 
@@ -326,7 +413,17 @@ def on_message(client, userdata, msg):
         elif topic == TOPICS["kitchen"]["ultrasonic"]:
             dist = payload.get("distance_cm")
             if dist is not None:
-                STATE["kitchen"]["occupied"] = dist < ULTRASONIC_PRESENCE_CM
+                if dist < ULTRASONIC_PRESENCE_CM:
+                    STATE["kitchen"]["last_seen"] = time.time()
+                    STATE["kitchen"]["occupied"]  = True
+                else:
+                    with config_lock:
+                        timeout = ROOM_CONFIGS["kitchen"]["pir_timeout_sec"]
+                    if time.time() - STATE["kitchen"]["last_seen"] > timeout:
+                        STATE["kitchen"]["occupied"] = False
+            lamp = payload.get("lamp")
+            if lamp is not None:
+                STATE["kitchen"]["appliances"]["lamp"] = lamp
 
 def setup_mqtt():
     client = mqtt.Client()
@@ -335,15 +432,6 @@ def setup_mqtt():
     client.connect(MQTT_BROKER_IP, MQTT_PORT, keepalive=60)
     client.loop_start()
     return client
-
-# ── IR ────────────────────────────────────────────────────────────────────────
-
-def send_ir(appliance: str, on: bool):
-    try:
-        from ir_controller import send_code
-        send_code(f"living_room_{appliance}_{'on' if on else 'off'}", tx_gpio=IR_TX_PIN)
-    except Exception as e:
-        print(f"[IR] {e}")
 
 # ── Flask API ─────────────────────────────────────────────────────────────────
 
@@ -360,7 +448,6 @@ def build_rooms(s: dict) -> list:
             "temp":     s["living_room"]["temp"],
             "humidity": s["living_room"]["humidity"],
             "hasDHT":   True,
-            "hasIR":    True,
             "appliances": [
                 {"id": "tv",  "name": "TV",  "icon": "tv",  "on": s["living_room"]["appliances"]["tv"]},
                 {"id": "ac",  "name": "AC",  "icon": "ac",  "on": s["living_room"]["appliances"]["ac"]},
@@ -375,7 +462,6 @@ def build_rooms(s: dict) -> list:
             "temp":     s["bedroom"]["temp"],
             "humidity": s["bedroom"]["humidity"],
             "hasDHT":   True,
-            "hasIR":    True,
             "appliances": [
                 {"id": "ac",   "name": "AC",   "icon": "ac",   "on": s["bedroom"]["appliances"]["ac"]},
                 {"id": "lamp", "name": "Lamp", "icon": "lamp", "on": s["bedroom"]["appliances"]["lamp"]},
@@ -387,7 +473,6 @@ def build_rooms(s: dict) -> list:
             "pi":       "Pi 3",
             "occupied": s["kitchen"]["occupied"],
             "hasDHT":   False,
-            "hasIR":    False,
             "appliances": [
                 {"id": "lamp", "name": "Lamp", "icon": "lamp", "on": s["kitchen"]["appliances"]["lamp"]},
             ],
@@ -398,18 +483,22 @@ def build_rooms(s: dict) -> list:
 def get_rooms():
     with state_lock:
         snapshot = json.loads(json.dumps(STATE))   # deep copy
-    return jsonify({"rooms": build_rooms(snapshot), "awayMode": snapshot["away_mode"]})
+    return jsonify({
+        "rooms":         build_rooms(snapshot),
+        "awayMode":      snapshot["away_mode"],
+        "occupantCount": snapshot["occupant_count"],
+        "householdSize": snapshot["household_size"],
+    })
 
 
 @app.route("/api/rooms/<room_id>/appliances/<appliance_id>", methods=["POST"])
 def toggle_appliance(room_id, appliance_id):
     data = request.get_json()
     on   = bool(data.get("on", False))
-    send_ir_after = False
 
     with state_lock:
         if room_id == "living-room" and appliance_id in STATE["living_room"]["appliances"]:
-            send_ir_after = set_appliance(appliance_id, on, manual=True)
+            set_appliance(appliance_id, on, manual=True)
 
         elif room_id == "bedroom" and appliance_id in STATE["bedroom"]["appliances"]:
             STATE["bedroom"]["appliances"][appliance_id] = on
@@ -424,9 +513,6 @@ def toggle_appliance(room_id, appliance_id):
                 TOPICS["kitchen"]["command"],
                 json.dumps({"appliance": appliance_id, "on": on}),
             )
-
-    if send_ir_after:
-        send_ir(appliance_id, on)
 
     return jsonify({"ok": True})
 
@@ -464,26 +550,32 @@ def update_config():
     return jsonify({"ok": True})
 
 
+@app.route("/api/household", methods=["POST"])
+def set_household():
+    data = request.get_json()
+    size = max(1, int(data.get("size", 1)))
+    with state_lock:
+        STATE["household_size"] = size
+        STATE["occupant_count"] = size   # reset — assume everyone is home
+    return jsonify({"ok": True})
+
+
 @app.route("/api/away", methods=["POST"])
 def set_away():
     data   = request.get_json()
     active = bool(data.get("active", False))
 
-    ir_off = []
     with state_lock:
         STATE["away_mode"] = active
         if active:
             for k in STATE["living_room"]["appliances"]:
                 STATE["living_room"]["appliances"][k] = False
                 _apply_gpio(k, False)
-                if k in ("tv", "ac", "fan"):
-                    ir_off.append(k)
             for k in STATE["bedroom"]["appliances"]:
                 STATE["bedroom"]["appliances"][k] = False
+            for k in STATE["kitchen"]["appliances"]:
+                STATE["kitchen"]["appliances"][k] = False
 
-    # Send IR and notify other Pis outside the lock
-    for k in ir_off:
-        send_ir(k, False)
     mqtt_client.publish(TOPICS["bedroom"]["command"], json.dumps({"away": active}))
     mqtt_client.publish(TOPICS["kitchen"]["command"], json.dumps({"away": active}))
 
@@ -501,10 +593,11 @@ if __name__ == "__main__":
             update_energy_led()
             time.sleep(2)
 
-    threading.Thread(target=pir_loop,        daemon=True).start()
-    threading.Thread(target=dht_loop,        daemon=True).start()
-    threading.Thread(target=automation_loop, daemon=True).start()
-    threading.Thread(target=energy_led_loop, daemon=True).start()
+    threading.Thread(target=pir_loop,           daemon=True).start()
+    threading.Thread(target=dht_loop,           daemon=True).start()
+    threading.Thread(target=automation_loop,    daemon=True).start()
+    threading.Thread(target=energy_led_loop,    daemon=True).start()
+    threading.Thread(target=ir_entry_exit_loop, daemon=True).start()
 
     print(f"[Pi 1] Flask API on http://0.0.0.0:{FLASK_PORT}")
     try:

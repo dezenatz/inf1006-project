@@ -3,8 +3,7 @@
 Pi 2 — Bedroom
 Role    : Sensor node + appliance control
 Sensors : PIR (GPIO 17), Ultrasonic TRIG/ECHO (GPIO 23/24),
-          DHT22 (GPIO 4), IR TX (GPIO 18), IR RX (GPIO 25),
-          LED (GPIO 27/22), Lamp relay (GPIO 6)
+          DHT22 (GPIO 4), AC relay (GPIO 5), Lamp relay (GPIO 6)
 """
 
 import json
@@ -42,8 +41,6 @@ RUNTIME_CONFIG = {
 
 PIR_PIN   = 24
 DHT_PIN   = 23
-IR_TX_PIN = 18
-IR_RX_PIN = 17
 AC_PIN    = 5
 LAMP_PIN  = 6
 
@@ -99,17 +96,6 @@ def set_appliance(appliance_id: str, on: bool, manual: bool = False):
             return   # still in manual override window
     STATE["appliances"][appliance_id] = on
     _apply_gpio(appliance_id, on)
-    if appliance_id == "ac":
-        send_ir(appliance_id, on)
-
-# ── IR ────────────────────────────────────────────────────────────────────────
-
-def send_ir(appliance: str, on: bool):
-    try:
-        from ir_controller import send_code
-        send_code(f"bedroom_{appliance}_{'on' if on else 'off'}", tx_gpio=IR_TX_PIN)
-    except Exception as e:
-        print(f"[IR] {e}")
 
 # ── MQTT callbacks ────────────────────────────────────────────────────────────
 
@@ -163,6 +149,8 @@ def automation_loop(client: mqtt.Client):
     """
     while True:
         time.sleep(10)
+        publish_snapshot = None
+
         with state_lock:
             if STATE["away_mode"]:
                 continue
@@ -177,35 +165,35 @@ def automation_loop(client: mqtt.Client):
                     exp = STATE["overrides"].get(app_id, 0)
                     if now >= exp:
                         set_appliance(app_id, False)
-                # Notify Pi 1 of appliance state change
-                client.publish(
-                    TOPICS["bedroom"]["appliances"],
-                    json.dumps(STATE["appliances"]),
-                )
-                continue
+                publish_snapshot = dict(STATE["appliances"])
 
-            changed = False
+            else:
+                changed = False
 
-            # Temperature — bedroom only has AC
-            if temp is not None:
-                with config_lock:
-                    t_ac = RUNTIME_CONFIG["temp_ac_threshold"]
-                target_ac = temp >= t_ac
-                if STATE["appliances"]["ac"] != target_ac:
-                    set_appliance("ac", target_ac)
+                # Temperature — bedroom only has AC
+                if temp is not None:
+                    with config_lock:
+                        t_ac = RUNTIME_CONFIG["temp_ac_threshold"]
+                    target_ac = temp >= t_ac
+                    if STATE["appliances"]["ac"] != target_ac:
+                        set_appliance("ac", target_ac)
+                        changed = True
+
+                # Nighttime lamp
+                target_lamp = is_nighttime()
+                if STATE["appliances"]["lamp"] != target_lamp:
+                    set_appliance("lamp", target_lamp)
                     changed = True
 
-            # Nighttime lamp
-            target_lamp = is_nighttime()
-            if STATE["appliances"]["lamp"] != target_lamp:
-                set_appliance("lamp", target_lamp)
-                changed = True
+                if changed:
+                    publish_snapshot = dict(STATE["appliances"])
 
-            if changed:
-                client.publish(
-                    TOPICS["bedroom"]["appliances"],
-                    json.dumps(STATE["appliances"]),
-                )
+        # Publish outside the lock so MQTT I/O never blocks state_lock
+        if publish_snapshot is not None:
+            client.publish(
+                TOPICS["bedroom"]["appliances"],
+                json.dumps(publish_snapshot),
+            )
 
 # ── Sensor + publish loop ─────────────────────────────────────────────────────
 
@@ -225,9 +213,6 @@ def sensor_loop(client: mqtt.Client):
                     pir_timeout = RUNTIME_CONFIG["pir_timeout_sec"]
                 if time.time() - STATE["last_motion"] > pir_timeout:
                     STATE["occupied"] = False
-            occupied  = STATE["occupied"]
-            away_mode = STATE["away_mode"]
-
         # Publish PIR
         client.publish(
             TOPICS["bedroom"]["pir"],

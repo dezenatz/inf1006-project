@@ -10,6 +10,8 @@ import os
 import sys
 import time
 
+import threading
+
 import paho.mqtt.client as mqtt
 import RPi.GPIO as GPIO
 
@@ -39,6 +41,7 @@ GPIO.setup(LAMP_PIN,  GPIO.OUT, initial=GPIO.LOW)
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
+state_lock          = threading.Lock()
 away_mode           = False
 occupied            = False
 last_seen_time      = 0.0   # timestamp of last detected presence
@@ -52,7 +55,7 @@ def set_lamp(on: bool):
 
 # ── Ultrasonic ────────────────────────────────────────────────────────────────
 
-def read_ultrasonic() -> float | None:
+def read_ultrasonic():
     """Return distance in cm, or None on timeout."""
     GPIO.output(TRIG_PIN, GPIO.HIGH)
     time.sleep(0.00001)
@@ -88,20 +91,25 @@ def on_message(client, userdata, msg):
 
     if msg.topic == TOPICS["config"]:
         if payload.get("room_id") == "kitchen" and "pir_timeout_sec" in payload:
-            RUNTIME_CONFIG["pir_timeout_sec"] = payload["pir_timeout_sec"]
+            with state_lock:
+                RUNTIME_CONFIG["pir_timeout_sec"] = payload["pir_timeout_sec"]
         return
 
     if "away" in payload:
-        away_mode = payload["away"]
-        if away_mode:
-            manual_lamp = None
+        with state_lock:
+            away_mode = payload["away"]
+            if away_mode:
+                manual_lamp = None
+        if payload["away"]:
             set_lamp(False)
         return
 
     if payload.get("appliance") == "lamp":
-        manual_lamp = bool(payload.get("on", False))
-        manual_lamp_expiry = time.time() + MANUAL_OVERRIDE_SEC
-        if not away_mode:
+        with state_lock:
+            manual_lamp = bool(payload.get("on", False))
+            manual_lamp_expiry = time.time() + MANUAL_OVERRIDE_SEC
+            _away = away_mode
+        if not _away:
             set_lamp(manual_lamp)
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -122,27 +130,36 @@ if __name__ == "__main__":
             if distance is not None:
                 person_present = distance < ULTRASONIC_PRESENCE_CM
 
-                if person_present:
-                    last_seen_time = time.time()
-                    occupied = True
-                else:
-                    if time.time() - last_seen_time > RUNTIME_CONFIG["pir_timeout_sec"]:
-                        occupied = False
+                with state_lock:
+                    if person_present:
+                        last_seen_time = time.time()
+                        occupied = True
+                    else:
+                        if time.time() - last_seen_time > RUNTIME_CONFIG["pir_timeout_sec"]:
+                            occupied = False
 
-                if not away_mode:
                     # Expire manual override once its window has passed
                     if manual_lamp is not None and time.time() >= manual_lamp_expiry:
                         manual_lamp = None
-                    if manual_lamp is None:
-                        set_lamp(occupied)   # lamp follows presence automatically
+
+                    _away        = away_mode
+                    _occupied    = occupied
+                    _manual_lamp = manual_lamp
+
+                if not _away:
+                    if _manual_lamp is None:
+                        set_lamp(_occupied)   # lamp follows presence automatically
                     else:
-                        set_lamp(manual_lamp)  # respect manual override
+                        set_lamp(_manual_lamp)  # respect manual override
 
                 client.publish(
                     TOPICS["kitchen"]["ultrasonic"],
-                    json.dumps({"distance_cm": distance}),
+                    json.dumps({
+                        "distance_cm": distance,
+                        "lamp": GPIO.input(LAMP_PIN) == GPIO.HIGH,
+                    }),
                 )
-                print(f"[Ultrasonic] {distance} cm  occupied={occupied}")
+                print(f"[Ultrasonic] {distance} cm  occupied={_occupied}")
 
             time.sleep(SENSOR_PUBLISH_INTERVAL)
 

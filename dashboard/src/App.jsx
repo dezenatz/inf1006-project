@@ -126,6 +126,14 @@ const CloseIcon = () => (
   </svg>
 )
 
+const PeopleIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+)
+
 const ICON_MAP = { tv: TvIcon, ac: AcIcon, fan: FanIcon, lamp: LampIcon }
 
 
@@ -150,7 +158,6 @@ const INITIAL_ROOMS = [
     temp: null,
     humidity: null,
     hasDHT: true,
-    hasIR: true,
     appliances: [
       { id: 'tv', name: 'TV', icon: 'tv', on: false },
       { id: 'ac', name: 'AC', icon: 'ac', on: false },
@@ -165,7 +172,6 @@ const INITIAL_ROOMS = [
     temp: null,
     humidity: null,
     hasDHT: true,
-    hasIR: true,
     appliances: [
       { id: 'ac', name: 'AC', icon: 'ac', on: false },
       { id: 'lamp', name: 'Lamp', icon: 'lamp', on: false },
@@ -469,7 +475,7 @@ function RoomCard({ room, layout, onToggleAppliance, awayMode, index, config, on
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {room.appliances.map((appliance) => {
               const Icon = ICON_MAP[appliance.icon] || (() => null)
-              const disabled = awayMode || (appliance.icon !== 'lamp' && !room.hasIR)
+              const disabled = awayMode
               const active = appliance.on && !disabled
               return (
                 <div
@@ -691,6 +697,8 @@ export default function App() {
   const [rooms, setRooms] = useState(INITIAL_ROOMS)
   const [awayMode, setAwayMode] = useState(false)
   const [roomConfigs, setRoomConfigs] = useState(DEFAULT_ROOM_CONFIGS)
+  const [occupantCount, setOccupantCount] = useState(0)
+  const [householdSize, setHouseholdSize] = useState(3)
   const [simOpen, setSimOpen] = useState(false)
   const { timeStr, dateStr } = useClock()
 
@@ -725,6 +733,8 @@ export default function App() {
             }))
           }
           if (typeof data.awayMode === 'boolean') setAwayMode(data.awayMode)
+          if (typeof data.occupantCount === 'number') setOccupantCount(data.occupantCount)
+          if (typeof data.householdSize === 'number') setHouseholdSize(data.householdSize)
         })
         .catch(() => { })
     }
@@ -746,6 +756,17 @@ export default function App() {
         body: JSON.stringify({ room_id: roomId, ...newConfig }),
       }).catch(() => { })
     }, 600)
+  }
+
+  const updateHouseholdSize = (newSize) => {
+    const size = Math.max(1, newSize)
+    setHouseholdSize(size)
+    setOccupantCount(size)
+    fetch(`${API_BASE}/api/household`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ size }),
+    }).catch(() => {})
   }
 
   const occupied = rooms.filter(r => r.occupied === true).length
@@ -865,6 +886,37 @@ export default function App() {
               <span style={{ fontSize: 12, fontWeight: 600, color: C.textPri, whiteSpace: 'nowrap' }}>
                 {energyLabel}
               </span>
+            </div>
+
+            {/* Divider */}
+            <div style={{ width: 1, height: 14, backgroundColor: C.border, flexShrink: 0 }} />
+
+            {/* People counter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px' }}>
+              <span style={{ color: C.textSec, display: 'flex' }}><PeopleIcon /></span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.textPri, whiteSpace: 'nowrap' }}>
+                {occupantCount}/{householdSize} home
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <button
+                  onClick={() => updateHouseholdSize(householdSize - 1)}
+                  style={{
+                    width: 18, height: 18, borderRadius: 5, border: `1px solid ${C.border}`,
+                    backgroundColor: C.pillBg, cursor: 'pointer', fontSize: 13, lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: C.textSec, padding: 0,
+                  }}
+                >−</button>
+                <button
+                  onClick={() => updateHouseholdSize(householdSize + 1)}
+                  style={{
+                    width: 18, height: 18, borderRadius: 5, border: `1px solid ${C.border}`,
+                    backgroundColor: C.pillBg, cursor: 'pointer', fontSize: 13, lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: C.textSec, padding: 0,
+                  }}
+                >+</button>
+              </div>
             </div>
 
             {/* Divider */}
