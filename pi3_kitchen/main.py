@@ -9,8 +9,8 @@ import json
 import os
 import sys
 import time
-
 import threading
+from datetime import datetime
 
 import paho.mqtt.client as mqtt
 import RPi.GPIO as GPIO
@@ -18,6 +18,7 @@ import RPi.GPIO as GPIO
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
     MANUAL_OVERRIDE_SEC, MQTT_BROKER_IP, MQTT_PORT,
+    NIGHT_END_HOUR, NIGHT_END_MIN, NIGHT_START_HOUR, NIGHT_START_MIN,
     PIR_TIMEOUT_SEC, SENSOR_PUBLISH_INTERVAL, TOPICS, ULTRASONIC_PRESENCE_CM,
 )
 
@@ -25,6 +26,8 @@ from config import (
 
 RUNTIME_CONFIG = {
     "pir_timeout_sec": PIR_TIMEOUT_SEC,
+    "night_start": f"{NIGHT_START_HOUR:02d}:{NIGHT_START_MIN:02d}",
+    "night_end":   f"{NIGHT_END_HOUR:02d}:{NIGHT_END_MIN:02d}",
 }
 
 # ── GPIO ──────────────────────────────────────────────────────────────────────
@@ -52,6 +55,18 @@ manual_lamp_expiry  = 0.0   # timestamp when manual override expires
 
 def set_lamp(on: bool):
     GPIO.output(LAMP_PIN, GPIO.HIGH if on else GPIO.LOW)
+
+def is_nighttime() -> bool:
+    now     = datetime.now()
+    current = now.hour * 60 + now.minute
+    with state_lock:
+        sh, sm = map(int, RUNTIME_CONFIG["night_start"].split(":"))
+        eh, em = map(int, RUNTIME_CONFIG["night_end"].split(":"))
+    start = sh * 60 + sm
+    end   = eh * 60 + em
+    if start > end:   # spans midnight (e.g. 19:30 → 07:30)
+        return current >= start or current < end
+    return start <= current < end
 
 # ── Ultrasonic ────────────────────────────────────────────────────────────────
 
@@ -90,9 +105,11 @@ def on_message(client, userdata, msg):
         return
 
     if msg.topic == TOPICS["config"]:
-        if payload.get("room_id") == "kitchen" and "pir_timeout_sec" in payload:
+        if payload.get("room_id") == "kitchen":
             with state_lock:
-                RUNTIME_CONFIG["pir_timeout_sec"] = payload["pir_timeout_sec"]
+                for key in RUNTIME_CONFIG:
+                    if key in payload:
+                        RUNTIME_CONFIG[key] = payload[key]
         return
 
     if "away" in payload:
@@ -155,7 +172,7 @@ if __name__ == "__main__":
 
                 if not _away:
                     if _manual_lamp is None:
-                        set_lamp(_occupied)   # lamp follows presence automatically
+                        set_lamp(_occupied and is_nighttime())  # auto: presence + nighttime
                     else:
                         set_lamp(_manual_lamp)  # respect manual override
 
