@@ -97,6 +97,7 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe(TOPICS["kitchen"]["command"])
     client.subscribe(TOPICS["config"])
 
+
 def on_message(client, userdata, msg):
     global away_mode, manual_lamp, manual_lamp_expiry
     try:
@@ -104,6 +105,7 @@ def on_message(client, userdata, msg):
     except Exception:
         return
 
+    # Handle Config Updates
     if msg.topic == TOPICS["config"]:
         if payload.get("room_id") == "kitchen":
             with state_lock:
@@ -112,6 +114,7 @@ def on_message(client, userdata, msg):
                         RUNTIME_CONFIG[key] = payload[key]
         return
 
+    # Handle Away Mode
     if "away" in payload:
         with state_lock:
             away_mode = payload["away"]
@@ -121,19 +124,17 @@ def on_message(client, userdata, msg):
             set_lamp(False)
         return
 
-    if payload.get("all_off"):
+    # Handle Lamp Control (Improved Logic)
+    # Check for 'on' key directly, or the 'appliance' == 'lamp' check
+    if "on" in payload or payload.get("appliance") == "lamp":
         with state_lock:
-            manual_lamp = False
-            manual_lamp_expiry = time.time() + MANUAL_OVERRIDE_SEC
-        set_lamp(False)
-        return
-
-    if payload.get("appliance") == "lamp":
-        with state_lock:
+            # Get 'on' value, default to False if not found
             manual_lamp = bool(payload.get("on", False))
             manual_lamp_expiry = time.time() + MANUAL_OVERRIDE_SEC
             _away = away_mode
+
         if not _away:
+            print(f"[MQTT] Manual Override: Lamp {'ON' if manual_lamp else 'OFF'}")
             set_lamp(manual_lamp)
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
