@@ -104,6 +104,13 @@ def on_message(client, userdata, msg):
             set_lamp(False)
         return
 
+    if payload.get("all_off"):
+        with state_lock:
+            manual_lamp = False
+            manual_lamp_expiry = 0
+        set_lamp(False)
+        return
+
     if payload.get("appliance") == "lamp":
         with state_lock:
             manual_lamp = bool(payload.get("on", False))

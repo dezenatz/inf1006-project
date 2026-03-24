@@ -211,16 +211,16 @@ _ir_lock = threading.Lock()
 def _all_appliances_off():
     """Force every appliance off across all rooms (house empty)."""
     with state_lock:
+        STATE["living_room"]["overrides"].clear()
         for k in STATE["living_room"]["appliances"]:
             STATE["living_room"]["appliances"][k] = False
             _apply_gpio(k, False)
         for k in STATE["bedroom"]["appliances"]:
             STATE["bedroom"]["appliances"][k] = False
-    for k in ["ac", "lamp"]:
-        mqtt_client.publish(TOPICS["bedroom"]["command"],
-                            json.dumps({"appliance": k, "on": False}))
-    mqtt_client.publish(TOPICS["kitchen"]["command"],
-                        json.dumps({"appliance": "lamp", "on": False}))
+        for k in STATE["kitchen"]["appliances"]:
+            STATE["kitchen"]["appliances"][k] = False
+    mqtt_client.publish(TOPICS["bedroom"]["command"], json.dumps({"all_off": True}))
+    mqtt_client.publish(TOPICS["kitchen"]["command"],  json.dumps({"all_off": True}))
     print("[IR] House empty — all appliances off")
 
 def _handle_enter():

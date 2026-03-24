@@ -129,6 +129,15 @@ def on_message(client, userdata, msg):
                     _apply_gpio(k, False)
         return
 
+    # House-empty all-off (bypasses overrides)
+    if payload.get("all_off"):
+        with state_lock:
+            STATE["overrides"].clear()
+            for k in list(STATE["appliances"].keys()):
+                STATE["appliances"][k] = False
+                _apply_gpio(k, False)
+        return
+
     # Appliance toggle from dashboard
     appliance = payload.get("appliance")
     on        = payload.get("on", False)
