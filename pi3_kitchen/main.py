@@ -107,7 +107,7 @@ def on_message(client, userdata, msg):
     if payload.get("all_off"):
         with state_lock:
             manual_lamp = False
-            manual_lamp_expiry = 0
+            manual_lamp_expiry = time.time() + MANUAL_OVERRIDE_SEC
         set_lamp(False)
         return
 
