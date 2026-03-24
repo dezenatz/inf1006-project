@@ -26,7 +26,7 @@ TOPICS = {
 }
 
 # ── Sensor Settings ───────────────────────────────────────────────────────────
-ULTRASONIC_PRESENCE_CM  = 150   # person detected if distance < this (cm)
+ULTRASONIC_PRESENCE_CM  = 20    # person detected if distance < this (cm)
 PIR_TIMEOUT_SEC         = 30    # prototype: mark empty after 30 s of no motion (prod = 600)
 DHT_READ_INTERVAL       = 10    # seconds between DHT22 reads
 SENSOR_PUBLISH_INTERVAL = 5     # seconds between MQTT publishes
