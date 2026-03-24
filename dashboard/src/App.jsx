@@ -18,6 +18,8 @@ const DEFAULT_ROOM_CONFIGS = {
   },
   kitchen: {
     pir_timeout_sec: 30,
+    night_start: '19:30',
+    night_end: '07:30',
   },
 }
 
@@ -556,7 +558,7 @@ function RoomCard({ room, layout, onToggleAppliance, awayMode, index, config, on
                     )}
                   </div>
                 </div>
-                {room.hasDHT && hasLamp && (
+                {(room.hasDHT || config.night_start !== undefined) && hasLamp && (
                   <div>
                     <SectionLabel>Night Mode — lamp auto-on</SectionLabel>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
