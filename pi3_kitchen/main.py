@@ -30,6 +30,10 @@ RUNTIME_CONFIG = {
     "night_end":   f"{NIGHT_END_HOUR:02d}:{NIGHT_END_MIN:02d}",
 }
 
+# Time sync from dashboard (avoids relying on Pi system clock)
+_sync_time_min = None   # minutes since midnight when last received from dashboard
+_sync_time_ts  = 0.0    # time.time() when it was received
+
 # ── GPIO ──────────────────────────────────────────────────────────────────────
 
 TRIG_PIN  = 23
@@ -57,11 +61,18 @@ def set_lamp(on: bool):
     GPIO.output(LAMP_PIN, GPIO.HIGH if on else GPIO.LOW)
 
 def is_nighttime() -> bool:
-    now     = datetime.now()
-    current = now.hour * 60 + now.minute
     with state_lock:
         sh, sm = map(int, RUNTIME_CONFIG["night_start"].split(":"))
         eh, em = map(int, RUNTIME_CONFIG["night_end"].split(":"))
+        t_min = _sync_time_min
+        t_ts  = _sync_time_ts
+    if t_min is not None:
+        # Use dashboard-synced time + elapsed minutes since sync
+        elapsed = int((time.time() - t_ts) / 60)
+        current = (t_min + elapsed) % (24 * 60)
+    else:
+        now     = datetime.now()
+        current = now.hour * 60 + now.minute
     start = sh * 60 + sm
     end   = eh * 60 + em
     if start > end:   # spans midnight (e.g. 19:30 → 07:30)
@@ -106,10 +117,15 @@ def on_message(client, userdata, msg):
 
     if msg.topic == TOPICS["config"]:
         if payload.get("room_id") == "kitchen":
+            global _sync_time_min, _sync_time_ts
             with state_lock:
                 for key in RUNTIME_CONFIG:
                     if key in payload:
                         RUNTIME_CONFIG[key] = payload[key]
+                if "current_time" in payload:
+                    h, m = map(int, payload["current_time"].split(":"))
+                    _sync_time_min = h * 60 + m
+                    _sync_time_ts  = time.time()
         return
 
     if "away" in payload:

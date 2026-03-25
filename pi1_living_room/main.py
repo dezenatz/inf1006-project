@@ -527,8 +527,9 @@ def get_config():
 
 @app.route("/api/config", methods=["POST"])
 def update_config():
-    data     = request.get_json() or {}
-    room_id  = data.pop("room_id", None)        # e.g. "living-room" / "bedroom" / "kitchen"
+    data         = request.get_json() or {}
+    room_id      = data.pop("room_id", None)        # e.g. "living-room" / "bedroom" / "kitchen"
+    current_time = data.pop("current_time", None)   # "HH:MM" sent by dashboard
     rooms_to_update = [room_id] if room_id else list(ROOM_CONFIGS.keys())
 
     with config_lock:
@@ -539,15 +540,19 @@ def update_config():
                 if key in ROOM_CONFIGS[rid]:
                     ROOM_CONFIGS[rid][key] = val
 
-    # Broadcast updated configs to Pi 2 and Pi 3 via MQTT
+    # Broadcast updated configs to Pi 2 and Pi 3 via MQTT (include time if provided)
     if room_id in (None, "bedroom"):
         with config_lock:
-            mqtt_client.publish(TOPICS["config"],
-                                json.dumps({"room_id": "bedroom", **ROOM_CONFIGS["bedroom"]}))
+            payload = {"room_id": "bedroom", **ROOM_CONFIGS["bedroom"]}
+        if current_time:
+            payload["current_time"] = current_time
+        mqtt_client.publish(TOPICS["config"], json.dumps(payload))
     if room_id in (None, "kitchen"):
         with config_lock:
-            mqtt_client.publish(TOPICS["config"],
-                                json.dumps({"room_id": "kitchen", **ROOM_CONFIGS["kitchen"]}))
+            payload = {"room_id": "kitchen", **ROOM_CONFIGS["kitchen"]}
+        if current_time:
+            payload["current_time"] = current_time
+        mqtt_client.publish(TOPICS["config"], json.dumps(payload))
 
     return jsonify({"ok": True})
 

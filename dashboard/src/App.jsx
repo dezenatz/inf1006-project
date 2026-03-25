@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Slider } from './components/Slider'
 import './index.css'
 
-const API_BASE = 'http://192.168.137.212:5000'   // ← Pi 1 IP
+const API_BASE = 'http://192.168.0.222:5000'   // ← Pi 1 IP
 
 const DEFAULT_ROOM_CONFIGS = {
   'living-room': {
@@ -529,13 +529,13 @@ function RoomCard({ room, layout, onToggleAppliance, awayMode, index, config, on
                       {hasFan && (
                         <SimSlider
                           label="Fan on at" value={config.temp_fan_threshold}
-                          min={20} max={40} step={1} unit="°C"
+                          min={15} max={45} step={1} unit="°C"
                           onChange={val => onConfigChange({ ...config, temp_fan_threshold: val })}
                         />
                       )}
                       <SimSlider
                         label="AC on at" value={config.temp_ac_threshold}
-                        min={25} max={45} step={1} unit="°C"
+                        min={20} max={45} step={1} unit="°C"
                         onChange={val => onConfigChange({ ...config, temp_ac_threshold: val })}
                       />
                     </div>
@@ -752,13 +752,29 @@ export default function App() {
     setRoomConfigs(prev => ({ ...prev, [roomId]: newConfig }))
     clearTimeout(configTimers[roomId])
     configTimers[roomId] = setTimeout(() => {
+      const current_time = new Date().toTimeString().slice(0, 5)
       fetch(`${API_BASE}/api/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room_id: roomId, ...newConfig }),
+        body: JSON.stringify({ room_id: roomId, ...newConfig, current_time }),
       }).catch(() => { })
     }, 600)
   }
+
+  // Periodically send current time to Pis so is_nighttime() stays accurate
+  useEffect(() => {
+    const sendTime = () => {
+      const current_time = new Date().toTimeString().slice(0, 5)
+      fetch(`${API_BASE}/api/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_time }),
+      }).catch(() => {})
+    }
+    sendTime()
+    const id = setInterval(sendTime, 60000)
+    return () => clearInterval(id)
+  }, [])
 
   const updateHouseholdSize = (newSize) => {
     const size = Math.max(1, newSize)
@@ -768,7 +784,7 @@ export default function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ size }),
-    }).catch(() => {})
+    }).catch(() => { })
   }
 
   const occupied = rooms.filter(r => r.occupied === true).length
